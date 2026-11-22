@@ -1,0 +1,8 @@
+module.exports = (db) => ({
+  async create({ userId, courseId }) {
+    const result = await db.runAsync('INSERT INTO enrollments (user_id, course_id) VALUES (?, ?)', [userId, courseId]);
+    return result.lastID;
+  },
+
+  deleteByUserId: (userId) => db.runAsync('DELETE FROM enrollments WHERE user_id = ?', [userId]),
+});
