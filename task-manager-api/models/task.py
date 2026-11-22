@@ -1,60 +1,177 @@
-from database import db
-from datetime import datetime
-import json
+from sqlalchemy import and_, case, func, or_
+from sqlalchemy.orm import joinedload
+
+from config.constants import (
+    CLOSED_STATUSES,
+    DEFAULT_PRIORITY,
+    DEFAULT_TASK_STATUS,
+    STATUS_DONE,
+    TAGS_SEPARATOR,
+    TITLE_MAX_LENGTH,
+)
+from models.database import db, utcnow
+
 
 class Task(db.Model):
-    __tablename__ = 'tasks'
+    __tablename__ = "tasks"
 
     id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(200), nullable=False)
+    title = db.Column(db.String(TITLE_MAX_LENGTH), nullable=False)
     description = db.Column(db.Text, nullable=True)
-    status = db.Column(db.String(50), default='pending')
-    priority = db.Column(db.Integer, default=3)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
-    category_id = db.Column(db.Integer, db.ForeignKey('categories.id'), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    status = db.Column(db.String(50), default=DEFAULT_TASK_STATUS)
+    priority = db.Column(db.Integer, default=DEFAULT_PRIORITY)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    category_id = db.Column(db.Integer, db.ForeignKey("categories.id"), nullable=True)
+    created_at = db.Column(db.DateTime, default=utcnow)
+    updated_at = db.Column(db.DateTime, default=utcnow, onupdate=utcnow)
     due_date = db.Column(db.DateTime, nullable=True)
     tags = db.Column(db.String(500), nullable=True)
 
-    user = db.relationship('User', backref='tasks')
-    category = db.relationship('Category', backref='tasks')
+    user = db.relationship("User", backref="tasks")
+    category = db.relationship("Category", backref="tasks")
+
+    # ---------- regras da entidade ----------
+
+    def is_overdue(self, now=None):
+        now = now or utcnow()
+        return bool(self.due_date and self.due_date < now and self.status not in CLOSED_STATUSES)
+
+    # ---------- serialização ----------
 
     def to_dict(self):
-        data = {}
-        data['id'] = self.id
-        data['title'] = self.title
-        data['description'] = self.description
-        data['status'] = self.status
-        data['priority'] = self.priority
-        data['user_id'] = self.user_id
-        data['category_id'] = self.category_id
-        data['created_at'] = str(self.created_at)
-        data['updated_at'] = str(self.updated_at)
-        data['due_date'] = str(self.due_date) if self.due_date else None
-        data['tags'] = self.tags.split(',') if self.tags else []
+        return {
+            "id": self.id,
+            "title": self.title,
+            "description": self.description,
+            "status": self.status,
+            "priority": self.priority,
+            "user_id": self.user_id,
+            "category_id": self.category_id,
+            "created_at": str(self.created_at),
+            "updated_at": str(self.updated_at),
+            "due_date": str(self.due_date) if self.due_date else None,
+            "tags": self.tags.split(TAGS_SEPARATOR) if self.tags else [],
+        }
+
+    def to_dict_with_overdue(self):
+        data = self.to_dict()
+        data["overdue"] = self.is_overdue()
         return data
 
-    def validate_status(self, new_status):
-        valid = ['pending', 'in_progress', 'done', 'cancelled']
-        if new_status in valid:
-            return True
-        else:
-            return False
+    def to_list_dict(self):
+        data = self.to_dict_with_overdue()
+        data["user_name"] = self.user.name if self.user else None
+        data["category_name"] = self.category.name if self.category else None
+        return data
 
-    def validate_priority(self, p):
-        if p >= 1 and p <= 5:
-            return True
-        return False
+    def to_summary_dict(self):
+        return {
+            "id": self.id,
+            "title": self.title,
+            "description": self.description,
+            "status": self.status,
+            "priority": self.priority,
+            "created_at": str(self.created_at),
+            "due_date": str(self.due_date) if self.due_date else None,
+            "overdue": self.is_overdue(),
+        }
 
-    def is_overdue(self):
-        if self.due_date:
-            if self.due_date < datetime.utcnow():
-                if self.status != 'done' and self.status != 'cancelled':
-                    return True
-                else:
-                    return False
-            else:
-                return False
-        else:
-            return False
+    # ---------- consultas ----------
+
+    @staticmethod
+    def _overdue_condition(now):
+        return and_(
+            Task.due_date.isnot(None),
+            Task.due_date < now,
+            Task.status.notin_(CLOSED_STATUSES),
+        )
+
+    @classmethod
+    def get_by_id(cls, task_id):
+        return db.session.get(cls, task_id)
+
+    @classmethod
+    def list_all_with_relations(cls):
+        return (
+            cls.query.options(joinedload(cls.user), joinedload(cls.category))
+            .order_by(cls.id)
+            .all()
+        )
+
+    @classmethod
+    def list_by_user(cls, user_id):
+        return cls.query.filter_by(user_id=user_id).order_by(cls.id).all()
+
+    @classmethod
+    def search(cls, text=None, status=None, priority=None, user_id=None):
+        query = cls.query
+        if text:
+            pattern = f"%{text}%"
+            query = query.filter(or_(cls.title.like(pattern), cls.description.like(pattern)))
+        if status:
+            query = query.filter(cls.status == status)
+        if priority is not None:
+            query = query.filter(cls.priority == priority)
+        if user_id is not None:
+            query = query.filter(cls.user_id == user_id)
+        return query.order_by(cls.id).all()
+
+    @classmethod
+    def count_all(cls):
+        return cls.query.count()
+
+    @classmethod
+    def count_by_status(cls, user_id=None):
+        query = db.session.query(cls.status, func.count(cls.id))
+        if user_id is not None:
+            query = query.filter(cls.user_id == user_id)
+        return dict(query.group_by(cls.status).all())
+
+    @classmethod
+    def count_by_priority(cls):
+        return dict(db.session.query(cls.priority, func.count(cls.id)).group_by(cls.priority).all())
+
+    @classmethod
+    def count_overdue(cls, now, user_id=None):
+        query = cls.query.filter(cls._overdue_condition(now))
+        if user_id is not None:
+            query = query.filter(cls.user_id == user_id)
+        return query.count()
+
+    @classmethod
+    def list_overdue(cls, now):
+        return cls.query.filter(cls._overdue_condition(now)).order_by(cls.id).all()
+
+    @classmethod
+    def count_high_priority(cls, user_id, max_priority):
+        return cls.query.filter(cls.user_id == user_id, cls.priority <= max_priority).count()
+
+    @classmethod
+    def count_created_since(cls, since):
+        return cls.query.filter(cls.created_at >= since).count()
+
+    @classmethod
+    def count_completed_since(cls, since):
+        return cls.query.filter(cls.status == STATUS_DONE, cls.updated_at >= since).count()
+
+    @classmethod
+    def totals_by_user(cls):
+        """{user_id: (total de tasks, tasks concluídas)} numa única consulta."""
+        done_flag = case((cls.status == STATUS_DONE, 1), else_=0)
+        rows = (
+            db.session.query(cls.user_id, func.count(cls.id), func.sum(done_flag))
+            .group_by(cls.user_id)
+            .all()
+        )
+        return {user_id: (total, int(done or 0)) for user_id, total, done in rows}
+
+    @classmethod
+    def count_by_category(cls):
+        return dict(
+            db.session.query(cls.category_id, func.count(cls.id)).group_by(cls.category_id).all()
+        )
+
+    @classmethod
+    def delete_by_user(cls, user_id):
+        """Apaga as tasks do usuário sem commit (o controller controla a transação)."""
+        cls.query.filter_by(user_id=user_id).delete(synchronize_session=False)
