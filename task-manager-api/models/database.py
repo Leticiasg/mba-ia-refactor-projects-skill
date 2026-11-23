@@ -1,29 +1,32 @@
-import logging
-from contextlib import contextmanager
 from datetime import datetime, timezone
 
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy.exc import SQLAlchemyError
-
-from middlewares.errors import DatabaseError
-
-logger = logging.getLogger(__name__)
 
 db = SQLAlchemy()
 
 
 def utcnow():
-    """UTC sem fuso, no mesmo formato das datas já gravadas."""
+    """Agora em UTC, sem fuso, no mesmo formato das datas já gravadas."""
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
-@contextmanager
-def transaction(error_message):
-    """Commit no fim; rollback e DatabaseError (500) se o banco falhar."""
+def save(*instances):
+    """Grava as instâncias numa única transação; desfaz tudo se falhar."""
     try:
-        yield db.session
+        for instance in instances:
+            db.session.add(instance)
         db.session.commit()
-    except SQLAlchemyError as error:
+    except Exception:
         db.session.rollback()
-        logger.exception("Falha no banco: %s", error_message)
-        raise DatabaseError(error_message) from error
+        raise
+
+
+def delete(*instances):
+    """Apaga as instâncias numa única transação; desfaz tudo se falhar."""
+    try:
+        for instance in instances:
+            db.session.delete(instance)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        raise

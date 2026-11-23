@@ -1,3 +1,6 @@
+"""Erros de domínio. Os controllers lançam; o error handler converte em JSON."""
+
+
 class AppError(Exception):
     status_code = 500
 
@@ -24,7 +27,3 @@ class NotFoundError(AppError):
 
 class ConflictError(AppError):
     status_code = 409
-
-
-class DatabaseError(AppError):
-    status_code = 500
