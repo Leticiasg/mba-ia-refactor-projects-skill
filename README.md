@@ -1,10 +1,10 @@
 # Skill refactor-arch: auditoria e refatoração para MVC
 
-Skill para o Claude Code que audita e refatora projetos backend para o padrão MVC, executada nos três projetos legados deste repositório. A skill analisa a stack, gera um relatório de anti-patterns, pede confirmação e só então reorganiza o código e verifica se a API continua respondendo.
+A `refactor-arch` é uma skill para o Claude Code que audita projetos backend e os reorganiza no padrão MVC, e foi executada nos três projetos legados deste repositório. Ela começa analisando a stack e gerando um relatório de anti-patterns, pede confirmação antes de mexer em qualquer arquivo e, só depois da resposta, refatora o código e verifica se a API continua respondendo como antes.
 
 ## Análise Manual
 
-Problemas identificados por leitura do código dos três projetos, antes da construção da skill. As linhas se referem à versão original de cada projeto.
+Os problemas abaixo foram identificados pela leitura do código dos três projetos, antes da construção da skill, e serviram de base para o catálogo de anti-patterns. As linhas indicadas se referem à versão original de cada projeto.
 
 ### Projeto 1 — code-smells-project (Python/Flask, e-commerce)
 
@@ -64,55 +64,53 @@ Problemas identificados por leitura do código dos três projetos, antes da cons
     └── refactoring-playbook.md   # Fase 3: transformações com código antes/depois
 ```
 
-Há um arquivo de referência para cada área de conhecimento exigida. A separação deixa a cobertura fácil de verificar e faz o agente carregar só o que a fase atual precisa.
-
-O `SKILL.md` define o que fazer e em que ordem. Cada fase começa com a instrução de ler as referências correspondentes, já que uma instrução sem apontar o arquivo não garante que ele seja consultado. O frontmatter usa `disable-model-invocation: true`: como a skill altera arquivos, ela só roda quando o comando `/refactor-arch` é digitado.
+Cada área de conhecimento exigida tem o seu próprio arquivo de referência, o que deixa a cobertura fácil de conferir e faz o agente carregar apenas o que a fase atual precisa. O `SKILL.md` funciona como roteiro, definindo o que fazer e em que ordem, e cada fase começa com a instrução de ler as referências correspondentes, já que uma instrução que não aponta o arquivo não garante que ele seja consultado. Como a skill altera arquivos, o frontmatter usa `disable-model-invocation: true`, e por isso ela só roda quando alguém digita `/refactor-arch`.
 
 ### Fluxo das fases
 
-1. **Análise.** Detecta linguagem, framework, banco, domínio e rotas a partir de evidências (arquivo de dependências, imports, entry point) e imprime o resumo. Não altera nada.
-2. **Auditoria.** Cruza o código com o catálogo, imprime o relatório de CRITICAL a LOW, com arquivo e linha, e encerra a resposta com `Proceed with refactoring (Phase 3)? [y/n]`. Nenhum arquivo é tocado antes da resposta. Depois do "y", o relatório é gravado em `reports/`, reaproveitando o arquivo do mesmo projeto quando ele já existe.
-3. **Refatoração.** Antes de mudar o código, a aplicação original sobe e as respostas de todas as rotas são gravadas numa pasta temporária fora do projeto. Em seguida vem a refatoração, um novo boot com o mesmo comando e a comparação de status e campos. Se algo quebra, a skill corrige e repete, no máximo cinco vezes. O resumo final lista as mudanças de resposta feitas por segurança e o que sobrou do catálogo.
+1. Na análise, a skill detecta linguagem, framework, banco, domínio e rotas a partir de evidências, como o arquivo de dependências, os imports e o entry point, e imprime um resumo sem alterar nada.
+2. Na auditoria, o código é cruzado com o catálogo e o relatório sai ordenado de CRITICAL a LOW, com arquivo e linha em cada achado. A resposta termina com `Proceed with refactoring (Phase 3)? [y/n]`, e nenhum arquivo é tocado até o usuário responder. Depois do "y", o relatório é gravado em `reports/`, reaproveitando o arquivo do mesmo projeto quando ele já existe.
+3. Na refatoração, a aplicação original sobe primeiro para que as respostas de todas as rotas fiquem gravadas numa pasta temporária fora do projeto. Só então o código é reorganizado, a aplicação sobe de novo com o mesmo comando e as respostas são comparadas por status e campos. Quando algo quebra, a skill corrige e repete a validação, até cinco vezes, e ao final lista as mudanças de resposta feitas por segurança e o que ainda sobrou do catálogo.
 
 ### Decisões de design
 
 | Ponto em aberto | Decisão |
 |---|---|
-| Local do código refatorado | Camadas em `src/` (`config/`, `models/`, `views/`, `controllers/`, `middlewares/`), com o comando original de execução preservado. Em projetos com pastas equivalentes, a estrutura existente é mantida e a equivalência fica registrada. |
-| View numa API JSON | Camada HTTP: rota, leitura da requisição e formato da resposta. |
-| Pasta `services/` | Reservada a integrações externas (e-mail, gateway). O fluxo fica nos controllers e as regras de entidade nos models. |
-| Critério de "endpoint continua respondendo" | Mesma rota, mesmo método, mesmo status e mesmos campos. A única exceção aceita é uma correção de segurança, como deixar de devolver a senha, listada no resumo final. |
+| Local do código refatorado | Camadas em `src/` (`config/`, `models/`, `views/`, `controllers/`, `middlewares/`), preservando o comando original de execução. Em projetos que já têm pastas equivalentes, a estrutura existente é mantida e a equivalência fica registrada. |
+| View numa API JSON | Camada HTTP, responsável pela rota, pela leitura da requisição e pelo formato da resposta. |
+| Pasta `services/` | Reservada a integrações externas, como e-mail e gateway, enquanto o fluxo fica nos controllers e as regras de entidade nos models. |
+| Critério de "endpoint continua respondendo" | Mesma rota, mesmo método, mesmo status e mesmos campos, com exceção apenas para correções de segurança, como deixar de devolver a senha, que precisam aparecer no resumo final. |
 
 ### Catálogo de anti-patterns
 
-O catálogo tem 19 anti-patterns. A base veio da análise manual: cada problema encontrado virou um anti-pattern com sinais de detecção concretos, complementado com padrões comuns em backends desse tipo.
+O catálogo tem 19 anti-patterns. Cada problema da análise manual virou um anti-pattern com sinais de detecção concretos, e a lista foi completada com padrões que costumam aparecer em backends desse tipo.
 
 | Severidade | Anti-patterns | Motivo da inclusão |
 |---|---|---|
-| CRITICAL | AP-01 credenciais hardcoded, AP-02 SQL Injection, AP-03 endpoint sensível sem autenticação, AP-04 God Class, AP-05 dado sensível em resposta ou log | Aparecem nos três projetos e expõem dados ou o banco inteiro. A God Class é o exemplo de CRITICAL da escala do desafio. |
-| HIGH | AP-06 senha sem hash forte, AP-07 regra de negócio na rota, AP-08 estado global mutável, AP-09 gravações sem transação | Violações de MVC e SOLID que mais travam a separação em camadas. A transação vem do checkout do projeto 2. |
-| MEDIUM | AP-10 N+1, AP-11 validação ausente, AP-12 erro genérico ou ignorado, AP-13 agregação em memória, AP-14 duplicação, AP-15 API deprecated | Performance e padronização. O item de deprecated tem uma tabela com o substituto de cada API, em Python e em Node. |
-| LOW | AP-16 magic numbers, AP-17 nomes ruins, AP-18 `print` no lugar de log, AP-19 imports sem uso e código morto | Legibilidade. São fáceis de corrigir e aparecem em todo projeto legado. |
+| CRITICAL | AP-01 credenciais hardcoded, AP-02 SQL Injection, AP-03 endpoint sensível sem autenticação, AP-04 God Class, AP-05 dado sensível em resposta ou log | Aparecem nos três projetos e expõem dados ou o banco inteiro, e a God Class é o próprio exemplo de CRITICAL da escala do desafio. |
+| HIGH | AP-06 senha sem hash forte, AP-07 regra de negócio na rota, AP-08 estado global mutável, AP-09 gravações sem transação | São as violações de MVC e SOLID que mais travam a separação em camadas, e a da transação veio do checkout do projeto 2. |
+| MEDIUM | AP-10 N+1, AP-11 validação ausente, AP-12 erro genérico ou ignorado, AP-13 agregação em memória, AP-14 duplicação, AP-15 API deprecated | Cobrem performance e padronização, e o item de deprecated traz uma tabela com o substituto de cada API em Python e em Node. |
+| LOW | AP-16 magic numbers, AP-17 nomes ruins, AP-18 `print` no lugar de log, AP-19 imports sem uso e código morto | Afetam a legibilidade e aparecem em praticamente todo projeto legado, embora sejam fáceis de corrigir. |
 
-Cada anti-pattern aponta para uma das 13 transformações do playbook (T01 a T13), todas com exemplo antes/depois em Python e em JavaScript.
+Cada anti-pattern aponta para uma das 13 transformações do playbook (T01 a T13), e todas elas têm exemplo antes/depois em Python e em JavaScript.
 
 ### Agnosticismo de tecnologia
 
-- O `SKILL.md` não cita nenhum arquivo, rota ou comando de projeto. Tudo é descoberto a cada execução.
-- A detecção da Fase 1 tem tabelas por linguagem e framework (Flask, FastAPI, Django, Express, Fastify, NestJS) e lê a versão no arquivo de dependências e no lockfile.
-- Os sinais de cada anti-pattern vêm em Python e em JavaScript.
-- As guidelines trazem a estrutura alvo nas duas stacks e uma seção para projetos já organizados: mapear as pastas existentes para camadas e ajustar, sem reescrever do zero.
-- A pasta da skill foi copiada sem alterações para os outros dois projetos. As três cópias são idênticas.
+O `SKILL.md` não cita nenhum arquivo, rota ou comando de projeto, porque tudo isso é descoberto a cada execução. A detecção da Fase 1 tem tabelas por linguagem e framework (Flask, FastAPI, Django, Express, Fastify e NestJS) e lê a versão no arquivo de dependências e no lockfile, enquanto os sinais de cada anti-pattern vêm escritos em Python e em JavaScript. As guidelines trazem a estrutura alvo para as duas stacks e uma seção específica para projetos que já têm alguma organização, orientando a mapear as pastas existentes para camadas em vez de reescrever tudo. A pasta da skill foi copiada sem nenhuma alteração para os outros dois projetos, e as três cópias são idênticas.
 
 ### Desafios encontrados
 
-- **Mudança de status por segurança.** Exigir token nas rotas administrativas muda o status de 200 para 401. A solução foi definir o critério de "continua respondendo" com uma exceção explícita para segurança, que a skill precisa listar no resumo.
-- **Banco no lugar errado ao mover a app.** O Flask-SQLAlchemy cria o SQLite relativo em `instance/`, ao lado do módulo da app, e mover a app mudaria o arquivo do banco. As guidelines passaram a exigir caminho fixo e nova execução do seed para conferência.
-- **Erros no Express.** O Express 4 não captura erro de função `async`. O playbook inclui um `asyncHandler` junto com o middleware de erro.
-- **Handler de erro do Flask engolindo 404.** Um `errorhandler(Exception)` transformaria o 404 de rota inexistente em 500. O exemplo do playbook deixa passar as exceções HTTP.
-- **Primeira execução interrompida.** Na primeira rodada, o Claude Code entrou em auto mode e a resposta parou depois de um comando. Um "continue" retomou a execução, ainda na Fase 1.
-- **Contrato e segurança no projeto 3.** O relatório marcou `POST /users` sem autenticação porque qualquer pessoa conseguia se cadastrar como admin. Bloquear o cadastro inteiro quebraria uma rota pública. Na pausa da Fase 2, a resposta foi "y" com uma orientação: manter o cadastro aberto e exigir token só para criar admin ou mudar `role`/`active`. A skill seguiu a orientação e, no fim, apontou o risco remanescente em vez de declarar "zero anti-patterns".
-- **Validação independente.** Antes de cada execução, um baseline foi gravado com scripts de `curl` próprios. Os mesmos scripts rodaram depois de cada refatoração, sem depender do que a skill declarou.
+Exigir token nas rotas administrativas muda o status delas de 200 para 401, o que entraria em conflito com a ideia de manter os endpoints respondendo. A saída foi definir o critério de "continua respondendo" com uma exceção explícita para correções de segurança, que a skill precisa listar no resumo final.
+
+No Flask-SQLAlchemy, o SQLite com caminho relativo é criado em `instance/`, ao lado do módulo da aplicação, então mover a aplicação de pasta mudaria o arquivo do banco sem nenhum aviso. Por isso as guidelines exigem um caminho fixo e uma nova execução do seed para conferir que os dados continuam no mesmo lugar.
+
+Duas armadilhas de tratamento de erro precisaram entrar no playbook. O Express 4 não captura erros de funções `async`, por isso o exemplo inclui um `asyncHandler` junto com o middleware de erro, e no Flask um `errorhandler(Exception)` transformaria o 404 de rota inexistente em 500, então o exemplo deixa passar as exceções HTTP.
+
+Na primeira rodada, o Claude Code entrou em auto mode e a resposta parou logo depois do primeiro comando, mas um "continue" foi suficiente para retomar a execução ainda na Fase 1.
+
+No projeto 3, o relatório marcou `POST /users` como endpoint sem autenticação, já que qualquer pessoa conseguia se cadastrar como admin, só que bloquear o cadastro inteiro quebraria uma rota pública. Na pausa da Fase 2, a resposta foi "y" acompanhada de uma orientação para manter o cadastro aberto e exigir token apenas para criar admin ou mudar `role` e `active`. A skill seguiu a orientação e, no resumo final, apontou o risco que sobrou em vez de declarar que não restavam anti-patterns.
+
+Para não depender só do que a skill declarava, um baseline de cada projeto foi gravado com scripts de `curl` próprios antes da execução, e os mesmos scripts rodaram de novo depois de cada refatoração.
 
 ## Resultados
 
@@ -173,38 +171,38 @@ utils/                        controllers/            # task, user, category, re
                               middlewares/            # errors, error_handler, auth
 ```
 
-No projeto 3 não foi criada a pasta `src/`. As pastas `models/` e `routes/` foram mantidas (`routes/` no papel das views), o que faltava foi criado e `services/` e `utils/` foram removidas, porque nenhuma rota as usava e o service tinha a senha SMTP no código.
+No projeto 3 a skill não criou a pasta `src/`: manteve `models/` e `routes/`, com `routes/` fazendo o papel das views, criou as camadas que faltavam e removeu `services/` e `utils/`, porque nenhuma rota usava essas pastas e o service ainda guardava a senha SMTP no código.
 
 ### Checklist de validação
 
 | Item | Projeto 1 | Projeto 2 | Projeto 3 |
 |---|---|---|---|
 | **Fase 1** | | | |
-| Linguagem detectada corretamente | ✅ Python | ✅ JavaScript | ✅ Python |
-| Framework detectado corretamente | ✅ Flask 3.1.1 | ✅ Express 4.22.1 | ✅ Flask 3.0.0 |
-| Domínio descrito corretamente | ✅ e-commerce | ✅ LMS com checkout | ✅ gerenciador de tarefas |
-| Número de arquivos condiz com a realidade | ✅ 4 | ✅ 3 | ✅ 15 |
+| Linguagem detectada corretamente | Sim (Python) | Sim (JavaScript) | Sim (Python) |
+| Framework detectado corretamente | Sim (Flask 3.1.1) | Sim (Express 4.22.1) | Sim (Flask 3.0.0) |
+| Domínio descrito corretamente | Sim (e-commerce) | Sim (LMS com checkout) | Sim (gerenciador de tarefas) |
+| Número de arquivos condiz com a realidade | Sim (4) | Sim (3) | Sim (15) |
 | **Fase 2** | | | |
-| Relatório segue o template | ✅ | ✅ | ✅ |
-| Cada finding tem arquivo e linhas exatos | ✅ | ✅ | ✅ |
-| Findings ordenados de CRITICAL a LOW | ✅ | ✅ | ✅ |
-| Mínimo de 5 findings | ✅ 18 | ✅ 17 | ✅ 16 |
-| Detecção de APIs deprecated | ✅ nenhuma no projeto | ✅ nenhuma no projeto | ✅ `Query.get()` |
-| Pausa e pede confirmação antes da Fase 3 | ✅ | ✅ | ✅ |
+| Relatório segue o template | Sim | Sim | Sim |
+| Cada finding tem arquivo e linhas exatos | Sim | Sim | Sim |
+| Findings ordenados de CRITICAL a LOW | Sim | Sim | Sim |
+| Mínimo de 5 findings | Sim (18) | Sim (17) | Sim (16) |
+| Detecção de APIs deprecated | Sim (nenhuma no projeto) | Sim (nenhuma no projeto) | Sim (`Query.get()`) |
+| Pausa e pede confirmação antes da Fase 3 | Sim | Sim | Sim |
 | **Fase 3** | | | |
-| Estrutura de diretórios segue MVC | ✅ | ✅ | ✅ (com `routes/` no papel de views) |
-| Configuração extraída, sem hardcoded | ✅ | ✅ | ✅ |
-| Models abstraem os dados | ✅ | ✅ | ✅ |
-| Views/Routes separadas | ✅ | ✅ | ✅ |
-| Controllers concentram o fluxo | ✅ | ✅ | ✅ |
-| Error handling centralizado | ✅ | ✅ | ✅ |
-| Entry point claro | ✅ `python app.py` | ✅ `npm start` | ✅ `python app.py` |
-| Aplicação inicia sem erros | ✅ | ✅ | ✅ |
-| Endpoints originais respondem | ✅ 21/23, as 2 rotas `/admin` exigem token | ✅ 4/4 do checkout; relatório e delete exigem token | ✅ 25/25 |
+| Estrutura de diretórios segue MVC | Sim | Sim | Sim (`routes/` no papel de views) |
+| Configuração extraída, sem hardcoded | Sim | Sim | Sim |
+| Models abstraem os dados | Sim | Sim | Sim |
+| Views/Routes separadas | Sim | Sim | Sim |
+| Controllers concentram o fluxo | Sim | Sim | Sim |
+| Error handling centralizado | Sim | Sim | Sim |
+| Entry point claro | Sim (`python app.py`) | Sim (`npm start`) | Sim (`python app.py`) |
+| Aplicação inicia sem erros | Sim | Sim | Sim |
+| Endpoints originais respondem | Sim (21/23; as 2 rotas `/admin` passaram a exigir token) | Sim (4/4 do checkout; relatório e delete passaram a exigir token) | Sim (25/25) |
 
 ### Logs das aplicações após a refatoração
 
-Os scripts de `curl` do baseline rodaram com o banco recriado e o mesmo comando de antes. Nos três casos o servidor subiu sem traceback.
+Os scripts de `curl` do baseline rodaram de novo com o banco recriado e o mesmo comando de execução de antes, e nos três casos o servidor subiu sem nenhum traceback.
 
 **Projeto 1** (`python app.py`)
 
@@ -228,7 +226,7 @@ GET /usuarios/1          antes 200 | depois 200     POST /admin/query        ant
                                                     POST /admin/reset-db     antes 200 | depois 401 (sem token)
 ```
 
-Com o header `X-Admin-Token`, `/admin/query` responde 200 para SELECT e 400 para outros comandos, e `/admin/reset-db` responde 200. `/usuarios` deixou de devolver `senha` e `/health` deixou de devolver `secret_key`, `debug` e `db_path`.
+Quando a requisição traz o header `X-Admin-Token`, `/admin/query` responde 200 para SELECT e 400 para qualquer outro comando, e `/admin/reset-db` responde 200. As respostas também ficaram mais enxutas por segurança, já que `/usuarios` deixou de devolver o campo `senha` e `/health` deixou de expor `secret_key`, `debug` e `db_path`.
 
 **Projeto 2** (`npm start`)
 
@@ -245,7 +243,7 @@ GET  /api/admin/financial-report       antes 200 | depois 401 (sem token) | 200 
 DELETE /api/users/1                    antes 200 | depois 401 (sem token) | 200 (com token)
 ```
 
-O log mostra só os quatro últimos dígitos do cartão. Antes, ele imprimia o número inteiro e a chave do gateway.
+O log, que antes imprimia o número inteiro do cartão e a chave do gateway, agora mostra só os quatro últimos dígitos do cartão.
 
 **Projeto 3** (`python seed.py` e `python app.py`)
 
@@ -266,14 +264,17 @@ POST /categories                                                201 | 201
 PUT /categories/1, DELETE /categories/4                         200 | 200
 ```
 
-São 25 de 25 requisições com o mesmo status e os mesmos campos, exceto `password`, que saiu das respostas de usuário. O login com as senhas originais do seed continua funcionando, e o banco permanece em `instance/tasks.db`.
+As 25 requisições voltaram com o mesmo status e os mesmos campos, com exceção de `password`, que saiu das respostas de usuário. O login com as senhas originais do seed continua funcionando e o banco permanece em `instance/tasks.db`.
 
 ### Comportamento da skill em cada stack
 
-- **Flask monolítico (projeto 1).** Caso mais direto. Os quatro arquivos foram separados em camadas dentro de `src/`, todo o SQL concatenado passou a usar placeholders e as senhas passaram a ser guardadas com hash. Na primeira validação, outro processo respondeu na porta no lugar da app nova; a skill percebeu que as respostas não batiam, refez o ciclo e passou na segunda tentativa.
-- **Express com callbacks (projeto 2).** Os callbacks aninhados viraram funções com `async/await` e o checkout passou a rodar numa transação. Alguns comportamentos mudaram sem alterar o formato da resposta: o relatório sai sempre na mesma ordem, o checkout recusado não cria mais o usuário e o DELETE apaga junto as matrículas e os pagamentos do usuário. Por isso, depois de um DELETE, o relatório não mostra mais o aluno "Unknown", e a receita dele deixa de aparecer. A mensagem do DELETE continua igual à original para não quebrar o contrato, mesmo dizendo que os dados "ficaram sujos".
-- **Flask com camadas parciais (projeto 3).** Nada foi reescrito do zero. A lógica das rotas foi para controllers, as contagens viraram consultas agregadas e `Query.get()` deu lugar a `db.session.get()`. O `datetime.utcnow()` não foi marcado como deprecated porque o ambiente usa Python 3.10, e a depreciação só existe a partir do 3.12; a análise manual o incluiu considerando a próxima versão da linguagem. O resumo final também registra o risco remanescente da orientação dada na pausa: como `PUT /users/<id>` continua sem token, ainda é possível trocar o e-mail ou a senha de outro usuário.
-- **Idioma das mensagens.** A narração do agente variou entre execuções: em inglês no projeto 1 e em português nos projetos 2 e 3. Os cabeçalhos do relatório seguem o template, que usa o mesmo formato em inglês do exemplo do desafio.
+No projeto 1, um Flask monolítico, a refatoração foi a mais direta: os quatro arquivos foram separados em camadas dentro de `src/`, todo o SQL concatenado passou a usar placeholders e as senhas passaram a ser guardadas com hash. Na primeira validação outro processo respondeu na porta no lugar da aplicação nova, mas a skill percebeu que as respostas não batiam, refez o ciclo e passou na segunda tentativa.
+
+No projeto 2, em Express, os callbacks aninhados viraram funções com `async/await` e o checkout passou a rodar dentro de uma transação. Alguns comportamentos mudaram sem alterar o formato da resposta, já que o relatório agora sai sempre na mesma ordem, o checkout recusado não cria mais o usuário e o DELETE apaga também as matrículas e os pagamentos do usuário. Por causa dessa última mudança, depois de um DELETE o relatório deixa de mostrar o aluno "Unknown" e a receita dele, e a mensagem de resposta do DELETE continua igual à original para não quebrar o contrato, mesmo dizendo que os dados "ficaram sujos".
+
+No projeto 3, que já tinha camadas parciais, nada foi reescrito do zero: a lógica das rotas foi para controllers, as contagens viraram consultas agregadas e `Query.get()` deu lugar a `db.session.get()`. O `datetime.utcnow()` não foi marcado como deprecated porque o ambiente usa Python 3.10 e a depreciação só existe a partir do 3.12, enquanto a análise manual o incluiu pensando na próxima versão da linguagem. O resumo final também registrou o risco que sobrou da orientação dada na pausa, porque, com `PUT /users/<id>` ainda sem token, continua sendo possível trocar o e-mail ou a senha de outro usuário.
+
+Quanto ao idioma, a narração do agente variou entre as execuções, em inglês no projeto 1 e em português nos projetos 2 e 3, enquanto os cabeçalhos do relatório seguiram o template, que usa o mesmo formato em inglês do exemplo do desafio.
 
 ## Como Executar
 
@@ -285,7 +286,7 @@ São 25 de 25 requisições com o mesmo status e os mesmos campos, exceto `passw
 
 ### Execução da skill
 
-A skill está em `.claude/skills/refactor-arch/` dentro de cada projeto. Para executar de novo a partir do código original, basta voltar o projeto ao commit inicial (`6d1ce62`) mantendo a pasta `.claude/`.
+A skill já está em `.claude/skills/refactor-arch/` dentro de cada projeto, e para executá-la de novo a partir do código original basta voltar o projeto ao commit inicial (`6d1ce62`) mantendo a pasta `.claude/`.
 
 ```bash
 # Projeto 1
@@ -301,7 +302,7 @@ cd ../task-manager-api
 claude "/refactor-arch"
 ```
 
-A skill imprime o resumo da Fase 1 e o relatório da Fase 2 e para em `Proceed with refactoring (Phase 3)? [y/n]`. Com "y", o relatório é gravado em `reports/audit-project-N.md` e a refatoração começa. Com "n", a execução termina sem alterar nada.
+Depois de imprimir o resumo da Fase 1 e o relatório da Fase 2, a skill para em `Proceed with refactoring (Phase 3)? [y/n]`. Com "y", o relatório é gravado em `reports/audit-project-N.md` e a refatoração começa, e com "n" a execução termina sem alterar nenhum arquivo.
 
 ### Validação da refatoração
 
@@ -330,7 +331,7 @@ npm install
 ADMIN_TOKEN=um-token-qualquer npm start
 ```
 
-As requisições de `api.http` continuam válidas. As duas rotas administrativas exigem o header `X-Admin-Token`:
+As requisições de `api.http` continuam válidas, mas as duas rotas administrativas, que antes eram abertas, agora só respondem com o header `X-Admin-Token`:
 
 ```bash
 curl -i -X POST http://localhost:3000/api/checkout -H 'Content-Type: application/json' \
@@ -354,6 +355,6 @@ curl -i -X POST http://localhost:5000/login -H 'Content-Type: application/json' 
   -d '{"email":"maria@email.com","password":"abcd"}'        # 200, devolve o token
 ```
 
-Criar um usuário com `role` admin ou mudar `role`/`active` exige o header `Authorization: Bearer <token>` com o token de login de um admin.
+Antes da refatoração, qualquer pessoa podia criar um usuário admin ou alterar `role` e `active` de outro usuário. Agora essas duas operações exigem o header `Authorization: Bearer <token>`, preenchido com o token que o `/login` devolve para um usuário admin, enquanto o cadastro comum continua aberto.
 
-Cada projeto tem um `.env.example` com as variáveis lidas pela aplicação. Sem `SECRET_KEY`, a app gera uma chave aleatória a cada boot e registra um aviso no log.
+Cada projeto tem um `.env.example` com as variáveis que a aplicação lê, e, quando `SECRET_KEY` não está definida, a aplicação gera uma chave aleatória a cada boot e registra um aviso no log.
