@@ -2,11 +2,14 @@
 
 Cada anti-pattern tem um ID, uma severidade, sinais de detecção em Python e em JavaScript e a transformação do playbook que o corrige (`refactoring-playbook.md`).
 
+**Seções:** Regras de uso (com a escala de severidade) · Resumo (tabela de AP-01 a AP-19) · CRITICAL · HIGH · MEDIUM · LOW.
+
 ## Regras de uso
 
 - Só reporte o que você viu no código. Todo finding precisa de `arquivo:linha` exato.
 - Quando o mesmo anti-pattern aparece em vários lugares, faça **um** finding e liste todas as linhas (`models.py:28, 48-49, 110`).
 - Um trecho pode cair em dois anti-patterns (ex.: SQL concatenado dentro de uma God Class). Reporte os dois, cada um com sua linha.
+- Audite a própria auditoria antes de fechar a lista: volte ao código de cada finding e classifique como **real** (o código comprova), **falso positivo** (retire da lista) ou **possível** (a evidência é parcial, por exemplo depende de configuração externa ou de como a rota é chamada). Um finding possível continua no relatório, marcado como possível, e diz o que falta confirmar.
 - Em caso de dúvida entre duas severidades, use a escala abaixo e escolha a que descreve o pior efeito real naquele código.
 
 ### Escala de severidade

@@ -9,6 +9,7 @@ O relatório é impresso no terminal e, depois da confirmação, gravado em arqu
 - O título do finding é o nome do anti-pattern no catálogo, seguido do ID (`AP-02`).
 - `Description` diz o que está no código, com o trecho ou valor que comprova. `Impact` diz o que pode dar errado. `Recommendation` aponta a transformação do playbook (`T02`).
 - Não esconda segredo do código na `Description` se ele já está hardcoded no repositório: cite onde está. Se for uma chave de produção real, mostre só os 4 primeiros caracteres.
+- Finding possível (evidência parcial, ver `anti-patterns.md`): acrescente `(possible)` no fim do título e termine a `Description` com `Not confirmed: <o que falta verificar>`. Falsos positivos não entram no relatório.
 - O `Summary` e o `Total` precisam bater com a lista de findings.
 - APIs deprecated entram como findings normais (AP-15). Se não houver nenhuma, escreva a linha `Deprecated APIs: none detected` antes do total.
 
@@ -64,7 +65,9 @@ Phase 2 complete. Proceed with refactoring (Phase 3)? [y/n]
 
 Nada é criado ou alterado antes da resposta.
 
-## Gravação do arquivo (só depois do "y")
+## Gravação do arquivo
+
+Só depois que o usuário responder "y".
 
 1. Descubra a raiz do repositório: `git rev-parse --show-toplevel`. Sem git, use a pasta pai do projeto.
 2. Crie `reports/` na raiz, se não existir.

@@ -2,7 +2,9 @@
 
 Heurísticas para descobrir a stack, o banco, as rotas e a arquitetura atual de um projeto backend. Toda conclusão precisa de uma evidência concreta: um arquivo, um import ou uma linha de código. Se não houver evidência, escreva "não detectado" em vez de supor.
 
-## 1. Arquivos a ignorar
+**Seções:** Arquivos a ignorar · Linguagem · Framework e versão · Banco de dados · Entry point, porta e como rodar · Inventário de rotas · Domínio · Arquitetura atual · Contagem de arquivos e linhas · Saída da Fase 1.
+
+## Arquivos a ignorar
 
 Nunca conte nem audite:
 
@@ -11,7 +13,7 @@ Nunca conte nem audite:
 - controle e ferramentas: `.git/`, `.claude/`, `.idea/`, `.vscode/`
 - dados e travas: `*.db`, `*.sqlite`, `instance/`, `package-lock.json`, `yarn.lock`, `poetry.lock`
 
-## 2. Linguagem
+## Linguagem
 
 | Evidência | Linguagem |
 |---|---|
@@ -24,9 +26,9 @@ Nunca conte nem audite:
 | `composer.json` | PHP |
 | `*.csproj` | C# |
 
-Se houver mais de uma, a linguagem principal é a do entry point (seção 5).
+Se houver mais de uma, a linguagem principal é a do entry point (seção "Entry point, porta e como rodar").
 
-## 3. Framework e versão
+## Framework e versão
 
 Procure primeiro no arquivo de dependências e confirme pelos imports.
 
@@ -43,7 +45,7 @@ Versão: use a versão fixada no arquivo de dependências (`flask==3.1.1`). Se f
 
 Liste as demais dependências de runtime (ex.: `flask-cors`, `sqlite3`, `marshmallow`). Ignore as de desenvolvimento.
 
-## 4. Banco de dados
+## Banco de dados
 
 | Evidência | Banco / acesso |
 |---|---|
@@ -59,7 +61,7 @@ Tabelas: procure `CREATE TABLE` (SQL cru) ou classes de modelo (`class X(db.Mode
 
 Arquivo do banco: anote o caminho. No Flask-SQLAlchemy, `sqlite:///arquivo.db` relativo fica em `instance/` ao lado do módulo da app. Isso importa na Fase 3: mover a app de pasta muda onde o banco é criado.
 
-## 5. Entry point, porta e como rodar
+## Entry point, porta e como rodar
 
 | Stack | Sinais |
 |---|---|
@@ -73,7 +75,7 @@ Descubra também, porque a Fase 3 vai precisar:
 - scripts de carga de dados que precisam rodar antes do boot (`seed.py`, `"scripts.seed"`, instruções no README);
 - variáveis de ambiente lidas no código (`os.environ`, `os.getenv`, `process.env`).
 
-## 6. Inventário de rotas
+## Inventário de rotas
 
 Liste todas as rotas com método, caminho e `arquivo:linha` do handler. A Fase 3 usa essa lista para validar.
 
@@ -84,11 +86,11 @@ Liste todas as rotas com método, caminho e `arquivo:linha` do handler. A Fase 3
 
 Para cada rota, anote também o que ela espera no corpo ou na query string (os campos lidos de `request.get_json()`, `request.args`, `req.body`, `req.query`, `req.params`). Arquivos de exemplo como `*.http`, coleções Postman ou o README costumam trazer requisições prontas: use-as.
 
-## 7. Domínio
+## Domínio
 
 Deduza o domínio pelos nomes de tabelas, rotas e entidades. Exemplos: `produtos`, `pedidos`, `usuarios` indicam e-commerce; `courses`, `enrollments`, `payments` indicam LMS com checkout; `tasks`, `categories`, `users` indicam gerenciador de tarefas. Descreva em uma linha, citando as entidades principais.
 
-## 8. Arquitetura atual
+## Arquitetura atual
 
 | Classificação | Sinais |
 |---|---|
@@ -98,9 +100,9 @@ Deduza o domínio pelos nomes de tabelas, rotas e entidades. Exemplos: `produtos
 
 Descreva em uma linha o que existe hoje e onde estão as misturas principais.
 
-## 9. Contagem de arquivos e linhas
+## Contagem de arquivos e linhas
 
-Conte só código-fonte (respeitando a seção 1). Exemplo:
+Conte só código-fonte (respeitando a seção "Arquivos a ignorar"). Exemplo:
 
 ```bash
 find . -type f \( -name "*.py" -o -name "*.js" -o -name "*.ts" \) \
@@ -110,7 +112,7 @@ find . -type f \( -name "*.py" -o -name "*.js" -o -name "*.ts" \) \
 
 O número de "Source files" do resumo tem que bater com essa lista.
 
-## 10. Saída da Fase 1
+## Saída da Fase 1
 
 Imprima exatamente neste formato:
 

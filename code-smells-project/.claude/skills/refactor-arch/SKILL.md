@@ -6,7 +6,29 @@ disable-model-invocation: true
 
 # refactor-arch
 
-Você vai auditar e refatorar o projeto da pasta atual em três fases, nesta ordem. O conhecimento de domínio está em `references/`. Em cada fase, leia os arquivos indicados **antes** de agir.
+Você vai auditar e refatorar o projeto da pasta atual em três fases, nesta ordem. O conhecimento de domínio está em `references/`. Em cada fase, leia os arquivos indicados **antes** de agir, por inteiro.
+
+## Referências
+
+| Arquivo | Conteúdo | Quando ler |
+|---|---|---|
+| `references/project-analysis.md` | Heurísticas de detecção de stack, banco, rotas e arquitetura; formato da saída da Fase 1 | Início da Fase 1 |
+| `references/anti-patterns.md` | Catálogo AP-01 a AP-19, escala de severidade e sinais de detecção | Início da Fase 2; de novo no fim da Fase 3 |
+| `references/report-template.md` | Formato do relatório, pausa obrigatória e gravação do arquivo | Início da Fase 2 |
+| `references/mvc-guidelines.md` | Estrutura alvo, responsabilidades de cada camada e checklist | Início da Fase 3 |
+| `references/refactoring-playbook.md` | Transformações T01 a T13 com antes/depois em Python e JavaScript | Início da Fase 3 |
+
+## Scripts
+
+Ficam em `scripts/`, na pasta desta skill (a partir da raiz do projeto: `.claude/skills/refactor-arch/scripts/`). Rode-os da raiz do projeto com `bash`; nas instruções abaixo, `scripts/` abrevia esse caminho e `<tmp>` é a pasta temporária do 3.1. Não é preciso ler o código, só o cabeçalho de uso.
+
+| Script | O que faz | Quando usar |
+|---|---|---|
+| `wait_for_http.sh <url> [timeout]` | Espera a aplicação responder; sai com 1 se o tempo acabar | Depois de subir a aplicação (3.1 e 3.3) |
+| `run_requests.sh <base_url> <arquivo>` | Roda a lista de requisições e imprime `METHOD PATH -> STATUS \| forma da resposta` | Baseline (3.1) e validação (3.3) |
+| `compare_results.sh <antes> <depois>` | Compara as duas saídas linha a linha e imprime `<n>/<n> requests match baseline` | Validação (3.3) |
+
+As instruções abaixo citam seções pelo título exato, entre aspas. Para achar uma seção, procure o título no arquivo indicado.
 
 ## Regras gerais
 
@@ -24,12 +46,12 @@ Você vai auditar e refatorar o projeto da pasta atual em três fases, nesta ord
 
 Leia `references/project-analysis.md`.
 
-1. Liste os arquivos-fonte, ignorando o que a referência manda ignorar. Conte arquivos e linhas.
+1. Liste os arquivos-fonte, ignorando o que a seção "Arquivos a ignorar" de `references/project-analysis.md` manda ignorar. Conte arquivos e linhas.
 2. Detecte linguagem, framework e versão, dependências de runtime e banco de dados, sempre a partir do arquivo de dependências e dos imports.
 3. Encontre o entry point, a porta, o comando de instalação, o comando para subir e scripts de seed.
 4. Monte o inventário de rotas: método, caminho completo (com prefixos), `arquivo:linha` e campos esperados na entrada.
 5. Liste as tabelas, deduza o domínio e classifique a arquitetura atual.
-6. Imprima o bloco `PHASE 1: PROJECT ANALYSIS` no formato da seção 10 da referência, seguido do inventário de rotas.
+6. Imprima o bloco `PHASE 1: PROJECT ANALYSIS` no formato da seção "Saída da Fase 1" de `references/project-analysis.md`, seguido do inventário de rotas.
 
 Siga direto para a Fase 2.
 
@@ -38,35 +60,36 @@ Siga direto para a Fase 2.
 Leia `references/anti-patterns.md` e `references/report-template.md`.
 
 1. Leia todos os arquivos-fonte da lista da Fase 1, linha a linha. Não audite por amostragem.
-2. Para cada anti-pattern do catálogo, procure os sinais de detecção. Anote cada ocorrência com `arquivo:linha` exato. Confira o número da linha no arquivo antes de escrever.
+2. Para cada anti-pattern de `references/anti-patterns.md`, procure os sinais de detecção. Anote cada ocorrência com `arquivo:linha` exato. Confira o número da linha no arquivo antes de escrever.
 3. Agrupe ocorrências do mesmo anti-pattern num só finding, com todas as linhas.
 4. Verifique APIs deprecated (AP-15) contra as versões detectadas na Fase 1.
-5. Ordene de CRITICAL para LOW e confira se o `Summary` e o `Total` batem com a lista.
-6. Imprima o relatório exatamente no formato do template.
-7. Imprima `Phase 2 complete. Proceed with refactoring (Phase 3)? [y/n]` e **encerre a sua resposta aqui**. Espere o usuário responder. Não chame nenhuma ferramenta de edição, não rode instalação e não suba a aplicação antes da resposta.
+5. Audite a própria auditoria, como manda a seção "Regras de uso" de `references/anti-patterns.md`: retire falsos positivos e marque como `(possible)` o que tem evidência parcial.
+6. Ordene de CRITICAL para LOW e confira se o `Summary` e o `Total` batem com a lista.
+7. Imprima o relatório exatamente no formato da seção "Formato" de `references/report-template.md`.
+8. Imprima `Phase 2 complete. Proceed with refactoring (Phase 3)? [y/n]` e **encerre a sua resposta aqui**. Espere o usuário responder. Não chame nenhuma ferramenta de edição, não rode instalação e não suba a aplicação antes da resposta.
 
 Respostas:
 - **"n"** (ou qualquer recusa): diga que nada foi alterado e pare.
-- **"y"**: grave o relatório seguindo a seção "Gravação do arquivo" do template e informe o caminho. Depois siga para a Fase 3.
+- **"y"**: grave o relatório seguindo a seção "Gravação do arquivo" de `references/report-template.md` e informe o caminho. Depois siga para a Fase 3.
 
 ## Fase 3 — Refatoração
 
-Leia `references/mvc-guidelines.md` e `references/refactoring-playbook.md`. Use os exemplos do playbook da linguagem detectada.
+Leia `references/mvc-guidelines.md` e `references/refactoring-playbook.md`. Use os exemplos do playbook na linguagem detectada na Fase 1; em outra linguagem, adapte a técnica dos exemplos e avise o usuário no resumo final.
 
 ### 3.1 Baseline (antes de mudar o código)
 
 1. Crie uma pasta temporária fora do projeto (`mktemp -d`) para guardar o baseline e os logs. Nada disso vai para dentro do projeto.
 2. Instale as dependências com o comando descoberto na Fase 1. Em Python, use um ambiente virtual dentro do projeto (`.venv/`) se ainda não houver um.
 3. Garanta um estado inicial limpo dos dados: se o banco é um arquivo, guarde uma cópia e recrie-o; rode o seed se o projeto tiver um.
-4. Confira se a porta está livre. Suba a aplicação original em segundo plano, com a saída indo para um log, e espere a porta responder (no máximo ~20 s). Leia o começo do log: se houver erro, mostre ao usuário e pare.
-5. Monte a lista de requisições a partir do inventário de rotas: use exemplos do projeto (`*.http`, README) quando existirem; para POST/PUT, monte corpos com os campos que o código lê e ids que existem no seed. Inclua pelo menos um caso de erro esperado (id inexistente ou corpo inválido). Ordem: leituras, criações, atualizações, remoções e, por último, rotas destrutivas (reset, delete em massa).
-6. Execute as requisições com `curl` e grave método, rota, status e os campos da resposta (chaves do JSON ou o texto). Pare a aplicação.
+4. Confira se a porta está livre. Suba a aplicação original em segundo plano, com a saída indo para um log, e espere com `scripts/wait_for_http.sh <url base> 20`. Leia o começo do log: se houver erro, mostre ao usuário e pare.
+5. Monte a lista de requisições a partir do inventário de rotas, num arquivo `<tmp>/requests.tsv`, no formato descrito no cabeçalho de `scripts/run_requests.sh`: use exemplos do projeto (`*.http`, README) quando existirem; para POST/PUT, monte corpos com os campos que o código lê e ids que existem no seed. Inclua pelo menos um caso de erro esperado (id inexistente ou corpo inválido). Ordem: leituras, criações, atualizações, remoções e, por último, rotas destrutivas (reset, delete em massa).
+6. Rode `scripts/run_requests.sh <url base> <tmp>/requests.tsv > <tmp>/before.txt`. Se a saída tiver status `000`, a aplicação não respondeu: investigue antes de seguir. Pare a aplicação.
 
 ### 3.2 Refatoração
 
-1. Defina a estrutura alvo pela seção 2 das guidelines. Em projeto já organizado, siga a seção 8 (mapear o que existe e ajustar, sem reescrever do zero).
-2. Aplique as transformações do playbook para cada finding do relatório, na ordem sugerida no playbook.
-3. Preserve o contrato da API e o comando para rodar (seção 1 das guidelines).
+1. Defina a estrutura alvo pela seção "Estrutura alvo" de `references/mvc-guidelines.md`. Em projeto já organizado, siga a seção "Projeto já parcialmente organizado" do mesmo arquivo (mapear o que existe e ajustar, sem reescrever do zero).
+2. Para cada finding do relatório, aplique a transformação indicada em `Recommendation` (Txx), na ordem sugerida no topo de `references/refactoring-playbook.md`.
+3. Preserve o contrato da API e o comando para rodar (seção "Princípios" de `references/mvc-guidelines.md`).
 4. Atualize os scripts que importam módulos movidos (seed, testes) e o arquivo de dependências, se algo mudar.
 5. Anote cada exceção de segurança que muda uma resposta (ex.: campo `senha` removido, rota admin exigindo token).
 
@@ -74,11 +97,11 @@ Leia `references/mvc-guidelines.md` e `references/refactoring-playbook.md`. Use 
 
 1. Volte os dados ao mesmo estado inicial do baseline: apague o banco criado no 3.1 (banco em memória recomeça sozinho ao reiniciar).
 2. Se o projeto tem seed, rode-o com o código novo. Ele precisa terminar sem erro.
-3. Suba a aplicação refatorada pelo **mesmo comando** da Fase 1. Leia o começo do log: erro de import ou de boot é falha.
-4. Rode as mesmas requisições do baseline e compare: mesmo status e mesmos campos. Diferenças só são aceitas se estiverem na lista de exceções de segurança.
+3. Suba a aplicação refatorada pelo **mesmo comando** da Fase 1 e espere com `scripts/wait_for_http.sh`. Leia o começo do log: erro de import ou de boot é falha.
+4. Rode `scripts/run_requests.sh` com o mesmo `<tmp>/requests.tsv`, gravando em `<tmp>/after.txt`, e depois `scripts/compare_results.sh <tmp>/before.txt <tmp>/after.txt`. Cada linha `DIFF` só é aceita se estiver na lista de exceções de segurança. Para conferir uma exceção (ex.: rota que agora exige token), acrescente a requisição com o header num arquivo à parte e rode de novo.
 5. Se algo falhar, corrija o código e repita a partir do passo 1. Faça no máximo 5 ciclos; se ainda falhar, pare e mostre ao usuário o que quebrou.
 6. Pare a aplicação e apague o banco criado na validação, se ele não existia antes. Restaure a cópia guardada no 3.1, se havia uma.
-7. Releia o código novo contra o catálogo e liste o que ainda restar. Não declare "zero anti-patterns" sem ter conferido.
+7. Releia o código novo contra `references/anti-patterns.md` e liste o que ainda restar. Não declare "zero anti-patterns" sem ter conferido.
 
 ### 3.4 Saída da Fase 3
 
@@ -93,7 +116,7 @@ PHASE 3: REFACTORING COMPLETE
 
 ## Validation
   ✓ Application boots without errors
-  ✓ All endpoints respond correctly (<n>/<n> requests match baseline)
+  ✓ All endpoints respond correctly (<n>/<n> requests match baseline, linha final de compare_results.sh)
   ✓ Zero anti-patterns remaining
 
 ## Security exceptions

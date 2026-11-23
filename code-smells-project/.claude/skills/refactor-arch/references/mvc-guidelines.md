@@ -2,7 +2,9 @@
 
 O padrão alvo da refatoração. Vale para qualquer stack; os nomes de arquivo seguem a convenção da linguagem (`snake_case.py`, `camelCase.js`).
 
-## 1. Princípios
+**Seções:** Princípios · Estrutura alvo · Responsabilidades e proibições · Fluxo de uma requisição · Erros · Configuração · Banco e dados · Projeto já parcialmente organizado · Checklist da Fase 3.
+
+## Princípios
 
 1. **O contrato da API não muda.** Mesma rota, mesmo método, mesmo status e mesmos campos na resposta. A única exceção é uma correção de segurança justificada (ex.: tirar `senha` da resposta, exigir token numa rota administrativa). Toda exceção aparece no resumo final da Fase 3.
 2. **O comando para rodar não muda.** Se era `python app.py` ou `npm start`, continua sendo.
@@ -10,7 +12,7 @@ O padrão alvo da refatoração. Vale para qualquer stack; os nomes de arquivo s
 4. **Sem dependência nova sem necessidade.** Prefira a biblioteca padrão e o que já está instalado. Se uma dependência for indispensável, adicione ao arquivo de dependências e instale.
 5. **Os dados continuam no mesmo lugar.** O banco precisa ser criado e lido no mesmo arquivo de antes, e os scripts de seed continuam funcionando.
 
-## 2. Estrutura alvo
+## Estrutura alvo
 
 ### Python (Flask)
 
@@ -60,7 +62,7 @@ O padrão alvo da refatoração. Vale para qualquer stack; os nomes de arquivo s
 
 Se o projeto já tem `src/` ou pastas equivalentes (`routes/` no lugar de `views/`), adapte em vez de duplicar. O que importa é a responsabilidade de cada camada, e não o nome da pasta. Registre a equivalência no resumo final.
 
-## 3. Responsabilidades e proibições
+## Responsabilidades e proibições
 
 | Camada | Faz | Não pode |
 |---|---|---|
@@ -74,7 +76,7 @@ Se o projeto já tem `src/` ou pastas equivalentes (`routes/` no lugar de `views
 
 Numa API JSON não existe template HTML: a **View** é a camada HTTP (rota + formato da resposta).
 
-## 4. Fluxo de uma requisição
+## Fluxo de uma requisição
 
 ```
 HTTP → View (lê a entrada) → Controller (valida, aplica regra, coordena) → Model (dados)
@@ -83,14 +85,14 @@ Controller devolve dados ou lança erro → View monta o status e o JSON
 Qualquer erro não tratado → middleware de erro → JSON padronizado
 ```
 
-## 5. Erros
+## Erros
 
 - Defina erros de domínio (ex.: `NotFoundError` → 404, `ValidationError` → 400, `UnauthorizedError` → 401).
 - O controller lança; o middleware/handler central converte em JSON.
 - O handler central loga o erro completo e devolve uma mensagem genérica para 500. Nunca devolva `str(e)` ou stack trace.
 - Mantenha os campos de erro que o projeto já usa (`erro`, `error`, `sucesso`, `msg`), para não quebrar o contrato.
 
-## 6. Configuração
+## Configuração
 
 - Segredos e ambiente vêm de variáveis de ambiente (`os.environ.get`, `process.env`).
 - Valor padrão só para o que não é segredo (porta, caminho do banco de desenvolvimento).
@@ -98,7 +100,7 @@ Qualquer erro não tratado → middleware de erro → JSON padronizado
 - `DEBUG` vem do ambiente e é desligado por padrão.
 - Crie `.env.example` com os nomes das variáveis e valores de exemplo que não sejam reais.
 
-## 7. Banco e dados
+## Banco e dados
 
 - Uma conexão por requisição (Flask: `g` + `teardown_appcontext`) ou injetada no model pelo composition root. Nada de conexão global alterada por `global`.
 - Operações com várias gravações ficam numa transação, controlada pelo controller ou por uma função do model.
@@ -106,7 +108,7 @@ Qualquer erro não tratado → middleware de erro → JSON padronizado
 - Atualize scripts que importam módulos movidos (seed, testes) e rode-os para conferir.
 - Se a forma de guardar senha mudar (hash forte), o seed precisa gravar no formato novo e o login dos usuários de exemplo precisa continuar funcionando com as senhas originais.
 
-## 8. Projeto já parcialmente organizado
+## Projeto já parcialmente organizado
 
 1. Mapeie cada pasta existente para uma camada (ex.: `routes/` → View; `models/` → Model; `services/` → Service se for integração externa, senão Controller; `utils/` → Config para constantes, ou removido se for código morto).
 2. Mova para controllers a lógica que está nas rotas.
@@ -114,7 +116,7 @@ Qualquer erro não tratado → middleware de erro → JSON padronizado
 4. Crie o que falta: `config/`, `controllers/`, `middlewares/error_handler`.
 5. Corrija os findings da Fase 2 dentro de cada camada.
 
-## 9. Checklist da Fase 3
+## Checklist da Fase 3
 
 - [ ] Estrutura de diretórios segue esta guideline (ou a equivalência foi registrada)
 - [ ] Configuração extraída para `config/`, sem segredo hardcoded
