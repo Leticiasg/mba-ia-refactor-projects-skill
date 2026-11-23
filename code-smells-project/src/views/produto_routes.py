@@ -42,5 +42,5 @@ def atualizar_produto(produto_id):
 
 @produto_bp.route("/produtos/<int:produto_id>", methods=["DELETE"])
 def deletar_produto(produto_id):
-    produto_controller.deletar(get_db(), produto_id)
+    produto_controller.remover(get_db(), produto_id)
     return jsonify({"sucesso": True, "mensagem": "Produto deletado"}), 200

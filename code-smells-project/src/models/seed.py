@@ -1,11 +1,11 @@
-"""Dados de exemplo gravados no primeiro boot (mesmos do projeto original)."""
+"""Dados de exemplo gravados no primeiro boot (tabela produtos vazia)."""
 import logging
 
-from src.models import usuario_model
+from src.models import produto_model, usuario_model
 
 logger = logging.getLogger(__name__)
 
-PRODUTOS_EXEMPLO = [
+PRODUTOS = [
     ("Notebook Gamer", "Notebook potente para jogos", 5999.99, 10, "informatica"),
     ("Mouse Wireless", "Mouse sem fio ergonômico", 89.90, 50, "informatica"),
     ("Teclado Mecânico", "Teclado mecânico RGB", 299.90, 30, "informatica"),
@@ -18,34 +18,26 @@ PRODUTOS_EXEMPLO = [
     ("Camiseta Dev", "Camiseta estampa código", 59.90, 100, "vestuario"),
 ]
 
-# Contas de demonstração. As senhas são gravadas apenas como hash.
-USUARIOS_EXEMPLO = [
+USUARIOS = [
     ("Admin", "admin@loja.com", "admin123", "admin"),
     ("João Silva", "joao@email.com", "123456", "cliente"),
     ("Maria Santos", "maria@email.com", "senha123", "cliente"),
 ]
 
 
-def popular_se_vazio(conexao):
-    total_produtos = conexao.execute("SELECT COUNT(*) FROM produtos").fetchone()[0]
-    if total_produtos:
+def seed_if_empty(db):
+    if produto_model.contar(db) > 0:
         return
-    conexao.executemany(
-        "INSERT INTO produtos (nome, descricao, preco, estoque, categoria) VALUES (?, ?, ?, ?, ?)",
-        PRODUTOS_EXEMPLO,
-    )
-    for nome, email, senha, tipo in USUARIOS_EXEMPLO:
-        usuario_model.criar(conexao, nome, email, usuario_model.gerar_hash_senha(senha), tipo)
-    logger.info("Banco populado com dados de exemplo")
+    with db:
+        for nome, descricao, preco, estoque, categoria in PRODUTOS:
+            produto_model.inserir(db, nome, descricao, preco, estoque, categoria)
+        for nome, email, senha, tipo in USUARIOS:
+            usuario_model.inserir(db, nome, email, senha, tipo)
+    logger.info("Seed aplicado: %d produtos, %d usuários", len(PRODUTOS), len(USUARIOS))
 
 
-def migrar_senhas_em_texto(conexao):
-    """Converte para hash senhas gravadas em texto puro por versões anteriores da aplicação."""
-    linhas = conexao.execute("SELECT id, senha FROM usuarios").fetchall()
-    migradas = 0
-    for linha in linhas:
-        if linha["senha"] and not usuario_model.eh_hash_senha(linha["senha"]):
-            usuario_model.atualizar_senha(conexao, linha["id"], usuario_model.gerar_hash_senha(linha["senha"]))
-            migradas += 1
+def migrar_senhas_legadas(db):
+    """Converte senhas gravadas em texto puro (bancos criados pela versão antiga) para hash."""
+    migradas = usuario_model.migrar_senhas_sem_hash(db)
     if migradas:
-        logger.info("%d senha(s) em texto puro convertida(s) para hash", migradas)
+        logger.info("%d senha(s) em texto puro convertidas para hash", migradas)

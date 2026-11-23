@@ -6,7 +6,7 @@ def calcular_desconto(faturamento):
     return next((faturamento * taxa for limite, taxa in FAIXAS_DESCONTO if faturamento > limite), 0)
 
 
-def relatorio_vendas(db):
+def vendas(db):
     resumo = pedido_model.resumo_vendas(db, STATUS_PENDENTE, STATUS_APROVADO, STATUS_CANCELADO)
     faturamento = resumo["faturamento"]
     total_pedidos = resumo["total_pedidos"]

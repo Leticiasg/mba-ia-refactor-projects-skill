@@ -11,7 +11,9 @@ logger = logging.getLogger(__name__)
 def register_error_handlers(app):
     @app.errorhandler(AppError)
     def handle_app_error(error):
-        return jsonify(error.to_dict()), error.status_code
+        if error.body is not None:
+            return jsonify(error.body), error.status_code
+        return jsonify({"erro": error.message, **error.extra}), error.status_code
 
     @app.errorhandler(Exception)
     def handle_unexpected(error):

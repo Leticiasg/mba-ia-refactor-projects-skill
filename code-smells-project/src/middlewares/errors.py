@@ -1,16 +1,14 @@
+"""Erros de domínio convertidos em JSON pelo error handler central."""
+
+
 class AppError(Exception):
     status_code = 500
 
-    def __init__(self, message, sucesso=None):
+    def __init__(self, message, extra=None, body=None):
         super().__init__(message)
         self.message = message
-        self.sucesso = sucesso
-
-    def to_dict(self):
-        corpo = {"erro": self.message}
-        if self.sucesso is not None:
-            corpo["sucesso"] = self.sucesso
-        return corpo
+        self.extra = extra or {}
+        self.body = body
 
 
 class ValidationError(AppError):
@@ -23,3 +21,7 @@ class UnauthorizedError(AppError):
 
 class NotFoundError(AppError):
     status_code = 404
+
+
+class ServiceUnavailableError(AppError):
+    status_code = 500

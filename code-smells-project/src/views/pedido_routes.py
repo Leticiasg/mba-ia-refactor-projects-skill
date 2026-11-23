@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, request
 
-from src.controllers import pedido_controller, relatorio_controller
+from src.controllers import pedido_controller
 from src.models.database import get_db
 
 pedido_bp = Blueprint("pedidos", __name__)
@@ -14,7 +14,7 @@ def criar_pedido():
 
 @pedido_bp.route("/pedidos", methods=["GET"])
 def listar_todos_pedidos():
-    return jsonify({"dados": pedido_controller.listar_todos(get_db()), "sucesso": True}), 200
+    return jsonify({"dados": pedido_controller.listar(get_db()), "sucesso": True}), 200
 
 
 @pedido_bp.route("/pedidos/usuario/<int:usuario_id>", methods=["GET"])
@@ -24,10 +24,5 @@ def listar_pedidos_usuario(usuario_id):
 
 @pedido_bp.route("/pedidos/<int:pedido_id>/status", methods=["PUT"])
 def atualizar_status_pedido(pedido_id):
-    pedido_controller.atualizar_status(get_db(), pedido_id, request.get_json(silent=True))
+    pedido_controller.atualizar_status(get_db(), pedido_id, request.get_json(silent=True) or {})
     return jsonify({"sucesso": True, "mensagem": "Status atualizado"}), 200
-
-
-@pedido_bp.route("/relatorios/vendas", methods=["GET"])
-def relatorio_vendas():
-    return jsonify({"dados": relatorio_controller.relatorio_vendas(get_db()), "sucesso": True}), 200

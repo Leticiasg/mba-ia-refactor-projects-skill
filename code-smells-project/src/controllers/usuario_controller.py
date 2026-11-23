@@ -30,7 +30,7 @@ def criar(db, dados):
     if not nome or not email or not senha:
         raise ValidationError("Nome, email e senha são obrigatórios")
     with db:
-        usuario_id = usuario_model.criar(db, nome, email, usuario_model.gerar_hash_senha(senha), TIPO_USUARIO_PADRAO)
+        usuario_id = usuario_model.inserir(db, nome, email, senha, TIPO_USUARIO_PADRAO)
     logger.info("Usuário criado: id %s", usuario_id)
     return usuario_id
 
@@ -41,7 +41,7 @@ def login(db, dados):
         raise ValidationError("Email e senha são obrigatórios")
     usuario = usuario_model.autenticar(db, email, senha)
     if not usuario:
-        logger.info("Tentativa de login falhou")
-        raise UnauthorizedError("Email ou senha inválidos", sucesso=False)
+        logger.info("Login falhou")
+        raise UnauthorizedError("Email ou senha inválidos", extra={"sucesso": False})
     logger.info("Login bem-sucedido: usuario %s", usuario["id"])
     return usuario
