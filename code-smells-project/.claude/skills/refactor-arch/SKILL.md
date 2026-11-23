@@ -25,6 +25,7 @@ Ficam em `scripts/`, na pasta desta skill (a partir da raiz do projeto: `.claude
 | Script | O que faz | Quando usar |
 |---|---|---|
 | `wait_for_http.sh <url> [timeout]` | Espera a aplicação responder; sai com 1 se o tempo acabar | Depois de subir a aplicação (3.1 e 3.3) |
+| `stop_port.sh <porta> [timeout]` | Para o processo que escuta na porta e confirma que ela ficou livre; sai com 1 se não conseguir | Sempre que for parar a aplicação (3.1 e 3.3), no lugar de `pkill` ou `kill` pelo nome |
 | `run_requests.sh <base_url> <arquivo>` | Roda a lista de requisições e imprime `METHOD PATH -> STATUS \| forma da resposta` | Baseline (3.1) e validação (3.3) |
 | `compare_results.sh <antes> <depois>` | Compara as duas saídas linha a linha e imprime `<n>/<n> requests match baseline` | Validação (3.3) |
 
@@ -35,7 +36,7 @@ As instruções abaixo citam seções pelo título exato, entre aspas. Para acha
 1. O projeto é a pasta de onde a skill foi chamada. Não altere nada fora dela, exceto o relatório em `reports/` (Fase 2).
 2. **Nenhum arquivo é criado, alterado ou apagado nas Fases 1 e 2.** Só leitura e comandos que não escrevem.
 3. Não mexa em `.claude/`, `.git/`, `node_modules/`, ambientes virtuais nem em relatórios antigos de outros projetos.
-4. Não faça commit nem push. Quem versiona é o usuário.
+4. Não altere o git: quem versiona é o usuário. Não rode `git add`, `rm`, `mv`, `restore`, `checkout`, `reset`, `stash`, `commit` nem `push`. Para apagar ou mover um arquivo, use `rm` e `mv` do sistema; o usuário decide o que vai para o stage. Comandos git de leitura (`status`, `diff`, `log`, `rev-parse`) são permitidos.
 5. Nunca imprima o conteúdo de arquivos `.env`.
 6. Tudo o que você afirmar precisa de evidência no código. Se não souber, diga "não detectado".
 7. Nada nesta skill depende de um projeto específico. Descubra nomes de arquivos, rotas e comandos a cada execução.
@@ -81,9 +82,9 @@ Leia `references/mvc-guidelines.md` e `references/refactoring-playbook.md`. Use 
 1. Crie uma pasta temporária fora do projeto (`mktemp -d`) para guardar o baseline e os logs. Nada disso vai para dentro do projeto.
 2. Instale as dependências com o comando descoberto na Fase 1. Em Python, use um ambiente virtual dentro do projeto (`.venv/`) se ainda não houver um.
 3. Garanta um estado inicial limpo dos dados: se o banco é um arquivo, guarde uma cópia e recrie-o; rode o seed se o projeto tiver um.
-4. Confira se a porta está livre. Suba a aplicação original em segundo plano, com a saída indo para um log, e espere com `scripts/wait_for_http.sh <url base> 20`. Leia o começo do log: se houver erro, mostre ao usuário e pare.
+4. Confira se a porta está livre com `lsof -i :<porta> -sTCP:LISTEN`. Se houver um processo que você não iniciou, mostre ao usuário e pergunte antes de pará-lo. Suba a aplicação original em segundo plano, com a saída indo para um log, e espere com `scripts/wait_for_http.sh <url base> 20`. Leia o começo do log: se houver erro, mostre ao usuário e pare.
 5. Monte a lista de requisições a partir do inventário de rotas, num arquivo `<tmp>/requests.tsv`, no formato descrito no cabeçalho de `scripts/run_requests.sh`: use exemplos do projeto (`*.http`, README) quando existirem; para POST/PUT, monte corpos com os campos que o código lê e ids que existem no seed. Inclua pelo menos um caso de erro esperado (id inexistente ou corpo inválido). Ordem: leituras, criações, atualizações, remoções e, por último, rotas destrutivas (reset, delete em massa).
-6. Rode `scripts/run_requests.sh <url base> <tmp>/requests.tsv > <tmp>/before.txt`. Se a saída tiver status `000`, a aplicação não respondeu: investigue antes de seguir. Pare a aplicação.
+6. Rode `scripts/run_requests.sh <url base> <tmp>/requests.tsv > <tmp>/before.txt`. Se a saída tiver status `000`, a aplicação não respondeu: investigue antes de seguir. Pare a aplicação com `scripts/stop_port.sh <porta>`.
 
 ### 3.2 Refatoração
 
@@ -99,8 +100,8 @@ Leia `references/mvc-guidelines.md` e `references/refactoring-playbook.md`. Use 
 2. Se o projeto tem seed, rode-o com o código novo. Ele precisa terminar sem erro.
 3. Suba a aplicação refatorada pelo **mesmo comando** da Fase 1 e espere com `scripts/wait_for_http.sh`. Leia o começo do log: erro de import ou de boot é falha.
 4. Rode `scripts/run_requests.sh` com o mesmo `<tmp>/requests.tsv`, gravando em `<tmp>/after.txt`, e depois `scripts/compare_results.sh <tmp>/before.txt <tmp>/after.txt`. Cada linha `DIFF` só é aceita se estiver na lista de exceções de segurança. Para conferir uma exceção (ex.: rota que agora exige token), acrescente a requisição com o header num arquivo à parte e rode de novo.
-5. Se algo falhar, corrija o código e repita a partir do passo 1. Faça no máximo 5 ciclos; se ainda falhar, pare e mostre ao usuário o que quebrou.
-6. Pare a aplicação e apague o banco criado na validação, se ele não existia antes. Restaure a cópia guardada no 3.1, se havia uma.
+5. Se algo falhar, pare a aplicação com `scripts/stop_port.sh <porta>`, corrija o código e repita a partir do passo 1. Nunca suba uma versão nova sem antes confirmar que a porta ficou livre, ou a versão antiga continua respondendo no lugar dela. Faça no máximo 5 ciclos; se ainda falhar, pare e mostre ao usuário o que quebrou.
+6. Pare a aplicação com `scripts/stop_port.sh <porta>` e apague o banco criado na validação, se ele não existia antes. Restaure a cópia guardada no 3.1, se havia uma.
 7. Releia o código novo contra `references/anti-patterns.md` e liste o que ainda restar. Não declare "zero anti-patterns" sem ter conferido.
 
 ### 3.4 Saída da Fase 3
