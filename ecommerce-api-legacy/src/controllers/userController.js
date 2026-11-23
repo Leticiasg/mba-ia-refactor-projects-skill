@@ -1,17 +1,16 @@
-const { ValidationError } = require('../middlewares/errors');
-
-// Mensagem mantida idêntica à original para não quebrar o contrato da API.
-const DELETE_MESSAGE = 'Usuário deletado, mas as matrículas e pagamentos ficaram sujos no banco.';
+const { ValidationError, NotFoundError } = require('../middlewares/errors');
 
 module.exports = ({ db, userModel, enrollmentModel, paymentModel }) => ({
   async deleteUser(rawId) {
-    if (!/^\d+$/.test(String(rawId))) throw new ValidationError();
     const userId = Number(rawId);
-    await db.transaction(async () => {
+    if (!Number.isInteger(userId) || userId <= 0) throw new ValidationError('Bad Request');
+
+    await db.withTransaction(async () => {
       await paymentModel.deleteByUserId(userId);
       await enrollmentModel.deleteByUserId(userId);
-      await userModel.deleteById(userId);
+      const deleted = await userModel.deleteById(userId);
+      if (deleted === 0) throw new NotFoundError('Usuário não encontrado');
     });
-    return DELETE_MESSAGE;
+    return 'Usuário deletado, com suas matrículas e pagamentos.';
   },
 });

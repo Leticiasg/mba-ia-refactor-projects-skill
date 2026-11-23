@@ -1,5 +1,4 @@
-const crypto = require('crypto');
-
+// Configuração vinda do ambiente. Só o que não é segredo tem valor padrão.
 const settings = {
   port: Number(process.env.PORT || 3000),
   dbPath: process.env.DB_PATH || ':memory:',
@@ -10,10 +9,8 @@ const settings = {
 
 const PAYMENT_STATUS = Object.freeze({ PAID: 'PAID', DENIED: 'DENIED' });
 
-// Regra do gateway simulado: cartões que começam com este prefixo são aprovados.
+// Gateway simulado: cartões com este prefixo são aprovados.
 const APPROVED_CARD_PREFIX = '4';
+const CARD_NUMBER_PATTERN = /^\d{12,19}$/;
 
-// Usado quando o checkout chega sem senha (o contrato original aceita isso).
-const generateRandomPassword = () => crypto.randomBytes(16).toString('hex');
-
-module.exports = { settings, PAYMENT_STATUS, APPROVED_CARD_PREFIX, generateRandomPassword };
+module.exports = { settings, PAYMENT_STATUS, APPROVED_CARD_PREFIX, CARD_NUMBER_PATTERN };

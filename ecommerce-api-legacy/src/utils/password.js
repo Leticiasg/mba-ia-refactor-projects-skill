@@ -2,6 +2,7 @@ const crypto = require('crypto');
 
 const SALT_BYTES = 16;
 const KEY_LENGTH = 64;
+const RANDOM_PASSWORD_BYTES = 24;
 
 function hashPassword(password) {
   const salt = crypto.randomBytes(SALT_BYTES).toString('hex');
@@ -9,12 +10,8 @@ function hashPassword(password) {
   return `${salt}:${hash}`;
 }
 
-function verifyPassword(password, stored) {
-  const [salt, hash] = String(stored).split(':');
-  if (!salt || !hash) return false;
-  const candidate = crypto.scryptSync(password, salt, KEY_LENGTH);
-  const expected = Buffer.from(hash, 'hex');
-  return candidate.length === expected.length && crypto.timingSafeEqual(candidate, expected);
+function randomPassword() {
+  return crypto.randomBytes(RANDOM_PASSWORD_BYTES).toString('base64url');
 }
 
-module.exports = { hashPassword, verifyPassword };
+module.exports = { hashPassword, randomPassword };

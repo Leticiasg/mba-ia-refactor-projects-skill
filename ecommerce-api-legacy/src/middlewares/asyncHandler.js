@@ -1,2 +1,2 @@
-// Express 4 não captura Promise rejeitada sozinho.
-module.exports = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+// Express 4 não repassa Promise rejeitada ao middleware de erro sozinho.
+module.exports = (handler) => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);

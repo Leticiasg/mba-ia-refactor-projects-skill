@@ -1,43 +1,44 @@
-const { ValidationError, NotFoundError, PaymentDeniedError } = require('../middlewares/errors');
-const { PAYMENT_STATUS, generateRandomPassword } = require('../config/settings');
-const { hashPassword } = require('../utils/password');
+const { ValidationError, NotFoundError } = require('../middlewares/errors');
+const { PAYMENT_STATUS, CARD_NUMBER_PATTERN } = require('../config/settings');
+const { hashPassword, randomPassword } = require('../utils/password');
 
-const isFilledString = (value) => typeof value === 'string' && value.trim() !== '';
-const isPositiveId = (value) => /^\d+$/.test(String(value)) && Number(value) > 0;
+function isNonEmptyString(value) {
+  return typeof value === 'string' && value.trim() !== '';
+}
 
-function validate({ name, email, password, courseId, cardNumber }) {
-  if (!isFilledString(name) || !isFilledString(email) || !isFilledString(cardNumber) || !isPositiveId(courseId)) {
-    throw new ValidationError();
-  }
-  if (password !== undefined && password !== null && typeof password !== 'string') {
-    throw new ValidationError();
-  }
+function validateCheckout({ name, email, password, courseId, cardNumber }) {
+  const courseIdNumber = Number(courseId);
+  const valid = isNonEmptyString(name)
+    && isNonEmptyString(email) && email.includes('@')
+    && (password === undefined || password === null || typeof password === 'string')
+    && Number.isInteger(courseIdNumber) && courseIdNumber > 0
+    && typeof cardNumber === 'string' && CARD_NUMBER_PATTERN.test(cardNumber);
+  if (!valid) throw new ValidationError('Bad Request');
+  return courseIdNumber;
 }
 
 module.exports = ({ db, userModel, courseModel, enrollmentModel, paymentModel, auditLogModel, paymentService }) => ({
   async checkout(input) {
-    validate(input);
+    const courseId = validateCheckout(input);
     const { name, email, password, cardNumber } = input;
-    const courseId = Number(input.courseId);
 
     const course = await courseModel.findActiveById(courseId);
     if (!course) throw new NotFoundError('Curso não encontrado');
 
-    const status = paymentService.charge({ cardNumber, amount: course.price });
-    if (status !== PAYMENT_STATUS.PAID) throw new PaymentDeniedError();
+    const status = paymentService.authorize({ cardNumber });
+    if (status !== PAYMENT_STATUS.PAID) throw new ValidationError('Pagamento recusado');
 
-    const enrollmentId = await db.transaction(async () => {
-      const existing = await userModel.findIdByEmail(email);
-      const userId = existing
-        ? existing.id
-        : await userModel.create({ name, email, passwordHash: hashPassword(password || generateRandomPassword()) });
+    return db.withTransaction(async () => {
+      const user = await userModel.findByEmail(email);
+      // O contrato aceita checkout sem senha: nesse caso a conta nasce com senha aleatória.
+      const userId = user
+        ? user.id
+        : await userModel.create({ name, email, passwordHash: hashPassword(password || randomPassword()) });
 
-      const newEnrollmentId = await enrollmentModel.create({ userId, courseId });
-      await paymentModel.create({ enrollmentId: newEnrollmentId, amount: course.price, status });
-      await auditLogModel.record(`Checkout curso ${courseId} por ${userId}`);
-      return newEnrollmentId;
+      const enrollmentId = await enrollmentModel.create(userId, course.id);
+      await paymentModel.create(enrollmentId, course.price, status);
+      await auditLogModel.record(`Checkout curso ${course.id} por ${userId}`);
+      return { enrollmentId };
     });
-
-    return { enrollmentId };
   },
 });
