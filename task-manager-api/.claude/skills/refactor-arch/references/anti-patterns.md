@@ -74,14 +74,16 @@ Impacto: o cliente muda a consulta. Ex.: `' OR '1'='1` no login entra sem senha.
 
 ### AP-03 — Endpoint sensível sem autenticação
 
-Rota que executa operação administrativa ou destrutiva sem verificar quem chama.
+Rota que executa operação administrativa ou destrutiva, ou que altera dados de um usuário, sem verificar quem chama.
 
 Sinais:
 - Rotas com `admin`, `reset`, `query`, `debug`, `internal` no caminho, ou `DELETE` em massa.
 - Handler que executa SQL recebido no corpo (`cursor.execute(dados["sql"])`).
+- Rota que altera ou apaga a conta de um usuário pelo id (`PUT`/`PATCH`/`DELETE` em `/users/<id>`, troca de e-mail ou de senha) sem confirmar que quem chama é o dono da conta ou um admin.
+- Proteção parcial: a checagem só roda para alguns campos (ex.: exige admin quando o corpo traz `role` ou `active`, mas deixa passar `email` e `password`). Trate como se não houvesse proteção.
 - Ausência de decorator, middleware ou checagem de token/sessão antes da operação.
 
-Impacto: qualquer pessoa lê, altera ou apaga dados.
+Impacto: qualquer pessoa lê, altera ou apaga dados. Trocar o e-mail ou a senha de outra conta, inclusive a de um admin, permite tomar essa conta.
 
 ### AP-04 — God Class / God File
 

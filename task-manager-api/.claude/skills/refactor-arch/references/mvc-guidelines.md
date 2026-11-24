@@ -6,7 +6,7 @@ O padrão alvo da refatoração. Vale para qualquer stack; os nomes de arquivo s
 
 ## Princípios
 
-1. **O contrato da API não muda.** Mesma rota, mesmo método, mesmo status e mesmos campos na resposta. A única exceção é uma correção de segurança justificada (ex.: tirar `senha` da resposta, exigir token numa rota administrativa). Toda exceção aparece no resumo final da Fase 3.
+1. **O contrato da API não muda.** Mesma rota, mesmo método, mesmo status e mesmos campos na resposta. A única exceção é uma correção de segurança justificada (ex.: tirar `senha` da resposta, exigir token numa rota administrativa ou na edição dos dados de um usuário). Toda exceção aparece no resumo final da Fase 3.
 2. **O comando para rodar não muda.** Se era `python app.py` ou `npm start`, continua sendo.
 3. **Mudança mínima em projeto já organizado.** Se uma pasta já cumpre o papel de uma camada, mantenha e corrija o conteúdo. Não reescreva do zero o que só precisa de ajuste.
 4. **Sem dependência nova sem necessidade.** Prefira a biblioteca padrão e o que já está instalado. Se uma dependência for indispensável, adicione ao arquivo de dependências e instale.

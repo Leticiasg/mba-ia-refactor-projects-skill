@@ -92,7 +92,7 @@ Leia `references/mvc-guidelines.md` e `references/refactoring-playbook.md`. Use 
 2. Para cada finding do relatório, aplique a transformação indicada em `Recommendation` (Txx), na ordem sugerida no topo de `references/refactoring-playbook.md`.
 3. Preserve o contrato da API e o comando para rodar (seção "Princípios" de `references/mvc-guidelines.md`).
 4. Atualize os scripts que importam módulos movidos (seed, testes) e o arquivo de dependências, se algo mudar.
-5. Anote cada exceção de segurança que muda uma resposta (ex.: campo `senha` removido, rota admin exigindo token).
+5. Anote cada exceção de segurança que muda uma resposta (ex.: campo `senha` removido, rota admin exigindo token, edição de usuário aceita só do dono ou de um admin).
 
 ### 3.3 Validação
 

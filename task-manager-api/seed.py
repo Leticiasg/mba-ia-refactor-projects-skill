@@ -1,4 +1,5 @@
-"""Script para popular o banco com dados iniciais"""
+"""Script para popular o banco com dados iniciais: `python seed.py`."""
+import logging
 from datetime import timedelta
 
 from app import app
@@ -6,6 +7,8 @@ from models.category import Category
 from models.database import db, utcnow
 from models.task import Task
 from models.user import User
+
+logger = logging.getLogger('seed')
 
 USERS = [
     {'name': 'João Silva', 'email': 'joao@email.com', 'password': '1234', 'role': 'admin'},
@@ -21,7 +24,7 @@ CATEGORIES = [
 ]
 
 
-def _tasks_data(users, categories, now):
+def _tasks(users, categories, now):
     joao, maria, pedro = users
     backend, frontend, devops, bug = categories
     return [
@@ -40,37 +43,38 @@ def _tasks_data(users, categories, now):
 
 def seed_data():
     with app.app_context():
-        Task.query.delete()
-        User.query.delete()
-        Category.query.delete()
-        db.session.commit()
+        try:
+            Task.query.delete()
+            User.query.delete()
+            Category.query.delete()
 
-        users = []
-        for user_data in USERS:
-            user = User(name=user_data['name'], email=user_data['email'], role=user_data['role'])
-            user.set_password(user_data['password'])
-            users.append(user)
-        categories = [Category(**category_data) for category_data in CATEGORIES]
-        db.session.add_all(users + categories)
-        db.session.flush()  # gera os ids antes de ligar as tasks
+            users = []
+            for user_data in USERS:
+                user = User(name=user_data['name'], email=user_data['email'], role=user_data['role'])
+                user.set_password(user_data['password'])
+                users.append(user)
+            categories = [Category(**category_data) for category_data in CATEGORIES]
+            db.session.add_all(users + categories)
+            db.session.flush()
 
-        for task_data in _tasks_data(users, categories, utcnow()):
-            db.session.add(Task(
-                title=task_data['title'],
-                description=task_data['description'],
-                status=task_data['status'],
-                priority=task_data['priority'],
-                user_id=task_data['user'].id,
-                category_id=task_data['category'].id,
-                due_date=task_data.get('due_date'),
-                tags=task_data.get('tags'),
-            ))
+            for task_data in _tasks(users, categories, utcnow()):
+                db.session.add(Task(
+                    title=task_data['title'],
+                    description=task_data['description'],
+                    status=task_data['status'],
+                    priority=task_data['priority'],
+                    user_id=task_data['user'].id,
+                    category_id=task_data['category'].id,
+                    due_date=task_data.get('due_date'),
+                    tags=task_data.get('tags'),
+                ))
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            raise
 
-        db.session.commit()
-        print("Seed concluído com sucesso!")
-        print(f"  {User.query.count()} usuários")
-        print(f"  {Category.query.count()} categorias")
-        print(f"  {Task.query.count()} tasks")
+        logger.info('Seed concluído com sucesso: %s usuários, %s categorias, %s tasks',
+                    User.count_all(), Category.count_all(), Task.count_all())
 
 
 if __name__ == '__main__':

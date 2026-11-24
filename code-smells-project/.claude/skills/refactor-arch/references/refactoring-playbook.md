@@ -8,7 +8,7 @@ Ordem sugerida na Fase 3: T04 (estrutura) → T01 (config) → T08 (conexão) �
 |---|---|---|
 | T01 | Extrair configuração para variáveis de ambiente | AP-01 |
 | T02 | Consultas parametrizadas | AP-02 |
-| T03 | Proteger rotas administrativas | AP-03 |
+| T03 | Proteger rotas administrativas e dados de outro usuário | AP-03 |
 | T04 | Quebrar God Class em Model / Controller / View | AP-04, AP-14 |
 | T05 | Tirar dado sensível de respostas e logs | AP-05 |
 | T06 | Hash de senha forte | AP-06 |
@@ -110,7 +110,7 @@ db.get('SELECT * FROM users WHERE email = ?', [email], cb);
 
 ---
 
-## T03 — Proteger rotas administrativas
+## T03 — Proteger rotas administrativas e dados de outro usuário
 
 Mantenha a rota (contrato), mas exija um token de administrador vindo do ambiente. Sem token configurado, a rota fica bloqueada. A mudança de status (200 → 401) é uma exceção de segurança e precisa constar no resumo da Fase 3.
 
@@ -143,6 +143,47 @@ def require_admin(view):
 def reset_database():
     return jsonify(admin_controller.reset_database()), 200
 ```
+
+**Edição de dados de um usuário.** A rota que altera ou apaga a conta de um usuário exige login e só aceita o dono da conta ou um admin, seja qual for o campo enviado. Campos que mudam privilégio (`role`, `active`) continuam exigindo admin, mesmo para o dono. Não proteja só alguns campos: com `email` e `password` liberados, qualquer pessoa toma outra conta.
+
+**Python — antes**
+```python
+def update_user(user_id, data, requester):
+    user = get_user(user_id)
+    if "role" in data or "active" in data:   # email e password passam sem checagem
+        ensure_admin(requester)
+    ...
+```
+
+**Python — depois**
+```python
+def ensure_owner_or_admin(requester, user_id):
+    if requester is None:
+        raise UnauthorizedError("Não autorizado")
+    if requester.id != user_id and not requester.is_admin():
+        raise ForbiddenError("Sem permissão para alterar este usuário")
+
+def update_user(user_id, data, requester):
+    user = get_user(user_id)
+    ensure_owner_or_admin(requester, user_id)
+    if "role" in data or "active" in data:
+        ensure_admin(requester)
+    ...
+```
+
+**JavaScript — depois**
+```js
+function requireOwnerOrAdmin(req, res, next) {
+  const user = req.user; // preenchido pelo middleware que valida o token
+  if (!user) return res.status(401).json({ error: 'Não autorizado' });
+  if (String(user.id) !== String(req.params.id) && user.role !== 'admin') {
+    return res.status(403).json({ error: 'Sem permissão para alterar este usuário' });
+  }
+  next();
+}
+```
+
+Na Fase 3, confira com três chamadas: sem token (401), com o token de outro usuário comum (403) e com o token do dono ou de um admin (200).
 
 Rota que executa SQL vindo do cliente: além do token, aceite só `SELECT` e use uma conexão somente leitura (`sqlite3.connect("file:loja.db?mode=ro", uri=True)`), ou remova a rota se o projeto não depende dela e registre a remoção.
 

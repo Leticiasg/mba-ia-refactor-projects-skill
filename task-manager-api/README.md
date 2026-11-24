@@ -1,6 +1,6 @@
 # task-manager-api
 
-API de Task Manager em Python/Flask usada como entrada do desafio `refactor-arch`. Diferente dos outros projetos, este já possui alguma separação de camadas (`models/`, `routes/`, `services/`, `utils/`), mas ainda contém problemas arquiteturais e de qualidade.
+API de Task Manager em Python/Flask usada como entrada do desafio `refactor-arch`, já refatorada para MVC.
 
 ## Como rodar
 
@@ -10,31 +10,31 @@ python seed.py
 python app.py
 ```
 
-A aplicação sobe em `http://localhost:5000`. O `seed.py` popula o banco SQLite (`tasks.db`) com usuários, categorias e tasks de exemplo — **rode-o antes do primeiro boot**, caso contrário os endpoints vão retornar listas vazias.
+A aplicação sobe em `http://localhost:5000`. O `seed.py` recria o banco SQLite (`instance/tasks.db`) com usuários, categorias e tasks de exemplo.
 
 ## Configuração
 
-As variáveis ficam em `.env.example` (copie para `.env`). Sem `SECRET_KEY`, a app gera uma chave aleatória a cada boot, e os tokens emitidos deixam de valer ao reiniciar. O modo debug fica desligado, a menos que `FLASK_DEBUG=true`. O e-mail de notificação só é enviado se as variáveis `SMTP_*` estiverem definidas.
-
-## Autenticação
-
-`POST /login` devolve um `token` assinado. Envie-o como `Authorization: Bearer <token>`. Um token de usuário `admin` é exigido para:
-
-- `POST /users` com `"role": "admin"` (o cadastro comum continua aberto);
-- `PUT /users/<id>` que altere `role` ou `active`;
-- `DELETE /users/<id>`.
-
-Sem token ou com token inválido a resposta é `401`; com token de quem não é admin, `403`.
+As variáveis ficam em `.env.example` (copie para `.env`). Sem `SECRET_KEY`, a aplicação gera uma chave temporária a cada boot e os tokens de login deixam de valer ao reiniciar. O modo debug fica desligado, a menos que `FLASK_DEBUG=true`. Notificações por e-mail só são enviadas com as variáveis `SMTP_*` preenchidas.
 
 ## Estrutura
 
-```
-app.py          composition root (create_app) e entry point
-config/         settings (ambiente) e constants (regras de domínio)
-routes/         camada HTTP (views): lê a entrada e devolve o JSON
-controllers/    casos de uso: validação, regras e transações
-models/         ORM, consultas e serialização
-middlewares/    erros de domínio, error handler central e autenticação
-services/       integração externa (e-mail SMTP)
-utils/          funções puras auxiliares
-```
+| Pasta | Camada |
+|---|---|
+| `app.py` | Entry point e composition root (`create_app()`) |
+| `config/` | Configuração (ambiente) e constantes de domínio |
+| `models/` | Entidades SQLAlchemy, consultas e regras da entidade |
+| `controllers/` | Casos de uso, validação e permissões |
+| `routes/` | View: blueprints que só recebem e respondem |
+| `services/` | Integração externa (e-mail) |
+| `middlewares/` | Erros de domínio, handler central e autenticação |
+
+## Autenticação
+
+`POST /login` devolve um `token` assinado. Envie-o como `Authorization: Bearer <token>` em:
+
+- `PUT /users/<id>` e `DELETE /users/<id>`: só o próprio usuário ou um admin; `role` e `active` só admin;
+- `POST /users` com `role` diferente de `user`: só admin;
+- `DELETE /tasks/<id>`: dono da task ou admin;
+- `DELETE /categories/<id>`: só admin.
+
+Usuários do seed: `joao@email.com` / `1234` (admin), `maria@email.com` / `abcd`, `pedro@email.com` / `pass`.

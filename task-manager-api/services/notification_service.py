@@ -1,4 +1,4 @@
-"""Envio de notificações por e-mail (SMTP). Sem SMTP configurado, não envia nada."""
+"""Notificações por e-mail (SMTP). Sem SMTP configurado no ambiente, nada é enviado."""
 import logging
 import smtplib
 from email.message import EmailMessage
@@ -48,9 +48,4 @@ class NotificationService:
         subject = f'Nova task atribuída: {task.title}'
         body = (f"Olá {user.name},\n\nA task '{task.title}' foi atribuída a você.\n\n"
                 f'Prioridade: {task.priority}\nStatus: {task.status}')
-        return self.send_email(user.email, subject, body)
-
-    def notify_task_overdue(self, user, task):
-        subject = f'Task atrasada: {task.title}'
-        body = f"Olá {user.name},\n\nA task '{task.title}' está atrasada!\n\nData limite: {task.due_date}"
         return self.send_email(user.email, subject, body)

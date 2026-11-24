@@ -1,69 +1,60 @@
 import logging
-import re
 
-from config.constants import COLOR_PATTERN, DEFAULT_CATEGORY_COLOR
-from controllers.validators import require_payload
-from middlewares.errors import NotFoundError, ValidationError
-from models import category as category_model
+from config.constants import DEFAULT_CATEGORY_COLOR
+from controllers import validators
+from controllers.permissions import ensure_admin
+from middlewares.errors import NotFoundError
 from models.category import Category
-from models.database import delete, save
 
 logger = logging.getLogger(__name__)
 
 CATEGORY_NOT_FOUND = 'Categoria não encontrada'
+NAME_REQUIRED = 'Nome é obrigatório'
 
 
-def _validate_name(name):
-    if not isinstance(name, str) or not name:
-        raise ValidationError('Nome é obrigatório')
-    return name
-
-
-def _validate_color(color):
-    if not isinstance(color, str) or not re.match(COLOR_PATTERN, color):
-        raise ValidationError('Cor inválida. Use o formato #RRGGBB')
-    return color
-
-
-def list_categories():
-    return category_model.list_with_task_counts()
-
-
-def get_category(category_id):
-    category = category_model.get_by_id(category_id)
+def _get_category_or_404(category_id):
+    category = Category.get(category_id)
     if category is None:
         raise NotFoundError(CATEGORY_NOT_FOUND)
     return category
 
 
+def list_categories():
+    result = []
+    for category, task_count in Category.list_with_task_counts():
+        data = category.to_dict()
+        data['task_count'] = task_count
+        result.append(data)
+    return result
+
+
 def create_category(data):
-    require_payload(data)
+    validators.require_body(data)
     category = Category(
-        name=_validate_name(data.get('name')),
+        name=validators.validate_required_text(data.get('name'), NAME_REQUIRED),
         description=data.get('description', ''),
-        color=_validate_color(data.get('color', DEFAULT_CATEGORY_COLOR)),
+        color=validators.validate_color(data.get('color', DEFAULT_CATEGORY_COLOR)),
     )
-    save(category)
+    category.save()
     logger.info('Categoria criada: %s', category.id)
-    return category
+    return category.to_dict()
 
 
 def update_category(category_id, data):
-    category = get_category(category_id)
-    require_payload(data, allow_empty=True)  # {} é aceito e não muda nada, como antes
+    category = _get_category_or_404(category_id)
+    validators.require_body(data)
     if 'name' in data:
-        _validate_name(data['name'])
+        category.name = validators.validate_required_text(data['name'], NAME_REQUIRED)
+    if 'description' in data:
+        category.description = data['description']
     if 'color' in data:
-        _validate_color(data['color'])
-
-    for field in ('name', 'description', 'color'):
-        if field in data:
-            setattr(category, field, data[field])
-    save(category)
-    return category
+        category.color = validators.validate_color(data['color'])
+    category.save()
+    return category.to_dict()
 
 
-def delete_category(category_id):
-    category = get_category(category_id)
-    delete(category)
+def delete_category(category_id, requester):
+    ensure_admin(requester)
+    category = _get_category_or_404(category_id)
+    category.delete()
     logger.info('Categoria deletada: %s', category_id)

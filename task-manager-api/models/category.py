@@ -2,7 +2,6 @@ from sqlalchemy import func
 
 from config.constants import DEFAULT_CATEGORY_COLOR
 from models.database import db, utcnow
-from models.task import Task
 
 
 class Category(db.Model):
@@ -23,21 +22,29 @@ class Category(db.Model):
             'created_at': str(self.created_at),
         }
 
+    @classmethod
+    def get(cls, category_id):
+        return db.session.get(cls, category_id)
 
-def get_by_id(category_id):
-    if category_id is None:
-        return None
-    return db.session.get(Category, category_id)
+    @classmethod
+    def count_all(cls):
+        return db.session.query(func.count(cls.id)).scalar()
 
+    @classmethod
+    def list_with_task_counts(cls):
+        """Lista (categoria, quantidade de tasks) numa consulta só."""
+        from models.task import Task
 
-def list_with_task_counts():
-    """[(category, task_count)] em uma consulta, ordenado por id."""
-    return (db.session.query(Category, func.count(Task.id))
-            .outerjoin(Task, Task.category_id == Category.id)
-            .group_by(Category.id)
-            .order_by(Category.id)
-            .all())
+        return (db.session.query(cls, func.count(Task.id))
+                .outerjoin(Task, Task.category_id == cls.id)
+                .group_by(cls.id)
+                .order_by(cls.id)
+                .all())
 
+    def save(self):
+        db.session.add(self)
+        db.session.commit()
 
-def count_all():
-    return Category.query.count()
+    def delete(self):
+        db.session.delete(self)
+        db.session.commit()

@@ -1,6 +1,3 @@
-"""Erros de domínio. Os controllers lançam; o error handler converte em JSON."""
-
-
 class AppError(Exception):
     status_code = 500
 

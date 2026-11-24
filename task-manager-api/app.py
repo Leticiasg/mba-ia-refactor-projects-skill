@@ -1,11 +1,10 @@
-"""Entry point e composition root: cria a app, liga config, banco, rotas e erros."""
+"""Entry point e composition root: `python app.py`."""
 import logging
 
 from flask import Flask
 from flask_cors import CORS
 
-import models  # noqa: F401  registra as tabelas antes do create_all
-from config.settings import Settings
+from config.settings import Settings, warn_about_missing_secrets
 from middlewares.error_handler import register_error_handlers
 from models.database import db
 from routes.category_routes import category_bp
@@ -15,21 +14,16 @@ from routes.task_routes import task_bp
 from routes.user_routes import user_bp
 from services.notification_service import NotificationService
 
-logger = logging.getLogger(__name__)
-
 
 def create_app(settings=Settings):
-    logging.basicConfig(level=settings.LOG_LEVEL, format='%(asctime)s %(levelname)s %(name)s: %(message)s')
-    if not settings.SECRET_KEY_FROM_ENV:
-        logger.warning('SECRET_KEY não definida; usando chave aleatória temporária (tokens não sobrevivem ao reinício).')
-
     app = Flask(__name__)
     app.config.from_object(settings)
-    CORS(app, origins=settings.CORS_ORIGINS)
+
+    CORS(app)
     db.init_app(app)
     app.extensions['notification_service'] = NotificationService.from_config(app.config)
 
-    for blueprint in (health_bp, task_bp, user_bp, category_bp, report_bp):
+    for blueprint in (health_bp, task_bp, user_bp, report_bp, category_bp):
         app.register_blueprint(blueprint)
     register_error_handlers(app)
 
@@ -38,7 +32,9 @@ def create_app(settings=Settings):
     return app
 
 
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(name)s: %(message)s')
+warn_about_missing_secrets()
 app = create_app()
 
 if __name__ == '__main__':
-    app.run(host=Settings.HOST, port=Settings.PORT, debug=Settings.DEBUG)
+    app.run(debug=Settings.DEBUG, host=Settings.HOST, port=Settings.PORT)
