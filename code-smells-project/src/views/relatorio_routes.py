@@ -8,4 +8,4 @@ relatorio_bp = Blueprint("relatorios", __name__)
 
 @relatorio_bp.route("/relatorios/vendas", methods=["GET"])
 def relatorio_vendas():
-    return jsonify({"dados": relatorio_controller.vendas(get_db()), "sucesso": True}), 200
+    return jsonify({"dados": relatorio_controller.relatorio_vendas(get_db()), "sucesso": True}), 200

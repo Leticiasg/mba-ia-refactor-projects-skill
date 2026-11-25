@@ -107,7 +107,7 @@ O `SKILL.md` não cita nenhum arquivo, rota ou comando de um projeto específico
 
 Exigir token nas rotas de administrador muda a resposta delas de 200 para 401, o que vai contra a ideia de manter a API respondendo igual. Por isso a regra abriu uma exceção para as correções de segurança, que a skill precisa listar no resumo final.
 
-No projeto 2, a skill não seguiu essa regra. Ela também mudou respostas que não tinham a ver com segurança, como a mensagem do DELETE e o erro 404 para um usuário que não existe. A skill avisou dessas mudanças no resumo e ofereceu desfazer tudo, mas elas foram mantidas, porque a mensagem antiga dizia que os dados do usuário apagado "ficaram sujos no banco", e depois da correção isso deixou de acontecer. A regra da skill continua a mesma, ou seja, manter essas mudanças foi uma decisão manual, e não algo que a skill permite.
+A skill nem sempre seguiu essa regra. Em algumas rodadas, ela também mudou respostas que não tinham a ver com segurança. Na rodada final, no projeto 1, o `PUT /pedidos/<id>/status` de um pedido que não existe passou de 200 para 404, e um e-mail repetido no cadastro passou a dar 400. No projeto 2, a mensagem do DELETE, que dizia que os dados do usuário apagado "ficaram sujos no banco", virou "Usuário deletado", porque agora as matrículas e os pagamentos são apagados junto. A skill avisou de todas essas mudanças no resumo final, e elas foram mantidas. A regra da skill continua a mesma, ou seja, manter essas mudanças foi uma decisão manual, e não algo que a skill permite.
 
 No Flask-SQLAlchemy, um banco SQLite com caminho relativo é criado na pasta `instance/`, ao lado do código da aplicação. Se a aplicação muda de pasta, o banco vai junto sem nenhum aviso. Por isso as guidelines mandam fixar o caminho do banco e rodar o seed de novo para conferir que os dados continuam no mesmo lugar.
 
@@ -115,7 +115,11 @@ Dois cuidados com tratamento de erro entraram no playbook. O Express 4 não capt
 
 Na primeira rodada, o Claude Code entrou em auto mode e parou logo depois do primeiro comando, e bastou digitar "continue" para seguir. Na segunda, a execução parou depois do "y" esperando uma permissão, porque a pasta `reports/` fica na raiz do repositório, fora da pasta do projeto, e o Claude Code pergunta antes de ler ou gravar arquivos fora dela.
 
-No projeto 3, o relatório apontou o `POST /users` como rota sem autenticação, já que qualquer pessoa podia se cadastrar como admin, mas bloquear a rota inteira impediria o cadastro comum. Por isso, nas duas primeiras rodadas, o "y" da pausa veio junto com uma orientação: manter o cadastro aberto e exigir token só para criar admin, para mudar `role` ou `active` e para o `DELETE /users/<id>`. A skill fez o que foi pedido, mas a orientação deixou uma brecha. O `PUT /users/<id>` só pedia token quando o corpo trazia `role` ou `active`, então qualquer pessoa ainda podia trocar o e-mail ou a senha de outra conta, inclusive a de um admin, e entrar nela. A regra AP-03 e a correção T03 foram ampliadas para cobrir qualquer mudança nos dados de outro usuário, e na terceira rodada o "y" foi dado sem orientação nenhuma.
+No projeto 3, o relatório apontou o `POST /users` como rota sem autenticação, já que qualquer pessoa podia se cadastrar como admin, mas bloquear a rota inteira impediria o cadastro comum. Por isso, nas duas primeiras rodadas, o "y" da pausa veio junto com uma orientação: manter o cadastro aberto e exigir token só para criar admin, para mudar `role` ou `active` e para o `DELETE /users/<id>`. A skill fez o que foi pedido, mas a orientação deixou uma brecha. O `PUT /users/<id>` só pedia token quando o corpo trazia `role` ou `active`, então qualquer pessoa ainda podia trocar o e-mail ou a senha de outra conta, inclusive a de um admin, e entrar nela. A regra AP-03 e a correção T03 foram ampliadas para cobrir qualquer mudança nos dados de outro usuário.
+
+Ao revisar as rotas dos três projetos depois dessa correção, apareceram outras brechas do mesmo tipo, que a regra ainda deixava passar. No projeto 3, o `PUT /tasks/<id>` continuava aberto, enquanto o `DELETE` da mesma task pedia o dono. No projeto 1, qualquer pessoa mudava o status do pedido de outra pessoa e criava pedido em nome de qualquer `usuario_id`. No projeto 2, o checkout com o e-mail de uma conta existente ignorava a senha e matriculava essa conta. A causa era a mesma: a regra falava da conta do usuário, mas não do que pertence a ele, e nada obrigava a skill a olhar todas as rotas que gravam dados. Por isso a Fase 2 ganhou um mapa de acesso, com todas essas rotas, e os três projetos foram refeitos com a regra nova. Nessa rodada final, o "y" foi dado sem orientação nenhuma.
+
+Também foi preciso definir até onde vai o AP-03. Numa primeira tentativa, o relatório do projeto 1 recomendou fechar as leituras, como `GET /usuarios` e `GET /pedidos`, e remover a rota que executa SQL. A regra ficou assim: o AP-03 cobre as rotas de admin e as que gravam dados. Leituras comuns continuam abertas, como no original, e aparecem no resumo final como risco que ficou. A rota de SQL continua existindo, com token de admin e só leitura. No projeto 2, que não tem login, a primeira recomendação foi criar um sistema de login, e a regra passou a dizer que, nesse caso, a skill usa um token de admin vindo do ambiente e não cria login, porque isso seria uma funcionalidade nova, e não uma refatoração.
 
 Para não depender só do que a skill dizia, antes de rodar a skill foi feito um teste próprio de cada projeto, com scripts de `curl` fora do repositório, e os mesmos scripts rodaram de novo depois de cada refatoração. Esse teste é chamado de baseline no resto do texto.
 
@@ -132,7 +136,9 @@ Depois da primeira rodada nos três projetos, a skill foi revista com base nas b
 | Nas duas rodadas do projeto 1, outro processo respondeu na porta no lugar da aplicação nova. Na segunda, ficou claro que o `pkill` pelo nome do comando não encontrou o processo | Foi criado o `stop_port.sh`, que para o processo pela porta e confere se ela ficou livre antes de subir outra versão | Se a porta não fica livre, a skill testa a aplicação antiga achando que é a nova |
 | A skill rodou `git rm --cached` nos projetos 2 e 1, em rodadas diferentes, porque a regra só proibia commit e push | A regra passou a listar todos os comandos git que alteram o repositório e manda usar `rm` e `mv` do sistema | Quem cuida do git é o usuário, e uma regra que lista os comandos não deixa brecha |
 | O relatório não tinha como marcar um problema que não dava para provar só pelo código | Antes de fechar o relatório, a skill revê cada problema, tira os errados e marca como `(possible)` os que dependem de algo fora do código | Quem lê o relatório sabe o que foi provado e o que ainda precisa ser confirmado |
-| No projeto 3, o `PUT /users/<id>` só pedia token quando o corpo trazia `role` ou `active`, e qualquer pessoa trocava o e-mail ou a senha de outra conta | O AP-03 passou a incluir qualquer rota que muda ou apaga os dados de um usuário sem conferir se quem chama é o dono da conta ou um admin, e a proteger só alguns campos passou a contar como não proteger. O T03 ganhou um exemplo de "dono ou admin" e um teste com três chamadas: sem token, com o token de outro usuário e com o token do dono | Quem troca o e-mail ou a senha de outra pessoa passa a entrar na conta dela, então essa rota precisa da mesma proteção de uma rota de admin |
+| No projeto 3, o `PUT /users/<id>` só pedia token quando o corpo trazia `role` ou `active`, e qualquer pessoa trocava o e-mail ou a senha de outra conta | O AP-03 passou a incluir qualquer rota que grava dados de um usuário, ou seja, a conta e tudo o que pertence a ela, como pedido, tarefa e matrícula, além das ações feitas em nome de outra pessoa. Proteger só alguns campos, ou só alguns métodos da mesma rota, passou a contar como não proteger. O T03 ganhou exemplos de "dono ou admin" | Quem troca o e-mail ou a senha de outra pessoa passa a entrar na conta dela, e quem edita o pedido ou a tarefa de outra pessoa estraga os dados dela |
+| A regra ampliada ainda deixou passar rotas parecidas, como o `PUT /tasks/<id>` e o `PUT /pedidos/<id>/status` | A Fase 2 ganhou um mapa de acesso: uma tabela com todas as rotas que gravam dados e as de admin, de quem é o dado, quem pode chamar hoje e quem deveria poder. Na Fase 3, cada rota protegida é testada sem token, com o token de outro usuário e com o token do dono | Listar todas as rotas obriga a skill a responder "quem pode chamar" para cada uma, em vez de procurar só os casos que ela lembra |
+| A skill recomendou fechar leituras, remover a rota de SQL e, num projeto sem login, criar um sistema de login | O AP-03 cobre rotas de admin e rotas que gravam. Leituras comuns ficam abertas e aparecem no resumo como risco. A rota de SQL fica com token e só leitura. Projeto sem login usa token de admin vindo do ambiente | Fechar leituras e criar login mudariam muito o contrato da API e acrescentariam funcionalidade nova, o que foge de uma refatoração |
 | Com Python e JavaScript no mesmo playbook, o agente lê os exemplos das duas linguagens mesmo quando o projeto usa só uma | O playbook chegou a ser dividido em um arquivo por linguagem, e a divisão foi desfeita | As correções são as mesmas em qualquer linguagem, e um arquivo só deixa claro que a skill não depende de uma stack |
 
 Ficou um limite no script de comparação: quando a resposta é um texto, e não um JSON, o `run_requests.sh` registra só a palavra `text`. Por isso a mudança na mensagem do DELETE do projeto 2 não apareceu como diferença no script, só no resumo da skill e no baseline.
@@ -141,7 +147,7 @@ Depois desses ajustes, os três projetos voltaram ao código original e foram re
 
 ## Resultados
 
-Os resultados abaixo partem do código original de cada projeto. Os projetos 1 e 2 são da segunda rodada. O projeto 3 é da terceira, feita depois que a regra de rotas sem autenticação foi ampliada.
+Os resultados abaixo são da rodada final, feita com a versão final da skill a partir do código original de cada projeto.
 
 ### Findings por projeto
 
@@ -149,7 +155,7 @@ Os resultados abaixo partem do código original de cada projeto. Os projetos 1 e
 |---|---|---|---|---|---|---|---|
 | code-smells-project | Python + Flask 3.1.1 | 5 | 4 | 5 | 4 | 18 | 10 de 10 |
 | ecommerce-api-legacy | Node.js + Express 4.22.1 | 4 | 4 | 5 | 4 | 17 | 9 de 9 |
-| task-manager-api | Python + Flask 3.0.0 | 4 | 3 | 6 | 4 | 17 | 9 de 9 |
+| task-manager-api | Python + Flask 3.0.0 | 3 | 3 | 6 | 4 | 16 | 9 de 9 |
 
 Os relatórios completos estão em [`reports/`](reports/).
 
@@ -177,7 +183,7 @@ requirements.txt              ├── config/settings.py
 Antes                         Depois
 src/app.js                    src/app.js              # liga todas as partes e sobe o servidor, npm start
 src/AppManager.js             .env.example
-src/utils.js                  src/config/             # settings, logger
+src/utils.js                  src/config/             # settings, constants, logger
                               src/models/             # database, user, course, enrollment, payment, auditLog, report
                               src/views/              # Routers: checkout, report, user
                               src/controllers/        # checkout, report, user
@@ -196,7 +202,7 @@ seed.py                       seed.py                 # grava as senhas com hash
 models/                       config/                 # settings, constants
 routes/                       models/                 # database, task, user, category
 services/                     routes/                 # task, user, report, category, health
-utils/                        controllers/            # task, user, category, report, validators, permissions
+utils/                        controllers/            # task, user, category, report, validators, permissions, metrics
                               middlewares/            # errors, error_handler, auth
                               services/notification_service.py
 ```
@@ -216,7 +222,7 @@ No projeto 3, a skill não criou a pasta `src/`, porque `models/` e `routes/` j�
 | Relatório segue o template | Sim | Sim | Sim |
 | Cada finding tem arquivo e linhas exatos | Sim | Sim | Sim |
 | Findings ordenados de CRITICAL a LOW | Sim | Sim | Sim |
-| Mínimo de 5 findings | Sim (18) | Sim (17) | Sim (17) |
+| Mínimo de 5 findings | Sim (18) | Sim (17) | Sim (16) |
 | Detecção de APIs deprecated | Sim (nenhuma no projeto) | Sim (nenhuma no projeto) | Sim (`Query.get()` em 16 pontos) |
 | Pausa e pede confirmação antes da Fase 3 | Sim | Sim | Sim |
 | **Fase 3** | | | |
@@ -228,9 +234,9 @@ No projeto 3, a skill não criou a pasta `src/`, porque `models/` e `routes/` j�
 | Error handling centralizado | Sim | Sim | Sim |
 | Entry point claro | Sim (`python app.py`) | Sim (`npm start`) | Sim (`python app.py`) |
 | Aplicação inicia sem erros | Sim | Sim | Sim |
-| Endpoints originais respondem | Sim (21 de 23 com o mesmo status; as 2 rotas `/admin` passaram a exigir token) | Sim (4 de 4 no checkout; relatório e DELETE passaram a exigir token) | Sim (21 de 25 com o mesmo status; `PUT /users`, `DELETE /users`, `DELETE /tasks` e `DELETE /categories` passaram a exigir token) |
+| Endpoints originais respondem | Sim (14 de 23 com o mesmo status; as gravações em produtos e pedidos e as 2 rotas `/admin` passaram a exigir token) | Sim (4 de 4 no checkout; relatório e DELETE passaram a exigir token) | Sim (16 de 25 com o mesmo status; todas as rotas que gravam em tasks, usuários e categorias passaram a exigir token, menos o cadastro comum) |
 
-Os números da última linha vêm do baseline. A própria skill testou mais requisições e chegou a 41 de 45 no projeto 1, 6 de 10 no projeto 2 e 30 de 39 no projeto 3, e todas as respostas diferentes estavam na lista de mudanças do resumo final.
+Os números da última linha vêm do baseline. Todas as chamadas diferentes são rotas que agora respondem 401 sem token. Com o token certo, elas voltam a responder como antes. Além do baseline, cada rota protegida foi testada à parte sem token (401), com o token de outro usuário (403) e com o token do dono ou de um admin (2xx), e todas passaram.
 
 ### Logs das aplicações após a refatoração
 
@@ -239,33 +245,30 @@ Os scripts do baseline rodaram de novo com o banco recriado e com o mesmo comand
 **Projeto 1** (`python app.py`)
 
 ```
-WARNING src.config.settings: SECRET_KEY não definida; usando chave aleatória temporária.
-WARNING src.config.settings: ADMIN_TOKEN não definido; rotas /admin ficam bloqueadas.
-INFO src.models.seed: Seed aplicado: 10 produtos, 3 usuários
-INFO __main__: Servidor iniciado em http://localhost:5000
+WARNING src.app: SECRET_KEY não definida: usando chave aleatória (tokens expiram a cada reinício).
+WARNING src.models.seed: SEED_ADMIN_PASSWORD não definida: o usuário admin foi criado com senha aleatória e não poderá fazer login.
+INFO src.models.seed: Banco populado com dados de exemplo
+INFO __main__: Servidor iniciado em http://127.0.0.1:5000
  * Debug mode: off
 
-GET /                    antes 200 | depois 200     POST /usuarios           antes 201 | depois 201
-GET /health              antes 200 | depois 200     POST /login              antes 200 | depois 200
-GET /produtos            antes 200 | depois 200     POST /login (errado)     antes 401 | depois 401
-GET /produtos/busca?q=a  antes 200 | depois 200     POST /pedidos            antes 201 | depois 201
-GET /produtos/1          antes 200 | depois 200     GET /pedidos             antes 200 | depois 200
-GET /produtos/9999       antes 404 | depois 404     GET /pedidos/usuario/2   antes 200 | depois 200
-POST /produtos (3 casos) antes 400 201 400 | igual  PUT /pedidos/1/status    antes 200 | depois 200
-PUT /produtos/1          antes 200 | depois 200     GET /relatorios/vendas   antes 200 | depois 200
-GET /usuarios            antes 200 | depois 200     DELETE /produtos/3       antes 200 | depois 200
-GET /usuarios/1          antes 200 | depois 200     POST /admin/query        antes 200 | depois 401 (sem token)
-                                                    POST /admin/reset-db     antes 200 | depois 401 (sem token)
+GET /, /health, /produtos, /produtos/busca, /produtos/1         200 | 200
+GET /produtos/9999                                              404 | 404
+GET /usuarios, /usuarios/1                                      200 | 200
+POST /usuarios                                                  201 | 201
+POST /login (certo | errado)                                    200 401 | 200 401
+GET /pedidos, /pedidos/usuario/2, /relatorios/vendas            200 | 200
+POST /produtos (3 casos), PUT /produtos/1, DELETE /produtos/3   400 201 400 200 200 | 401 (sem token)
+POST /pedidos, PUT /pedidos/1/status                            201 200 | 401 (sem token)
+POST /admin/query, POST /admin/reset-db                         200 200 | 401 (sem token)
 ```
 
-Com o header `X-Admin-Token`, o `/admin/query` só aceita consultas SELECT, sem poder alterar o banco, e responde 400 para qualquer outro comando, enquanto o `/admin/reset-db` responde 200. O script de comparação também mostrou as respostas que perderam campos por segurança: o `/usuarios` não devolve mais a `senha`, que vinha dentro de `dados`, e o `/health` não mostra mais `secret_key`, `debug` e `db_path`.
+O login agora devolve um campo novo, `token`, e as rotas protegidas leem o header `Authorization: Bearer <token>`. Nos testes à parte, uma cliente não conseguiu mexer em produtos, nem no pedido de outra pessoa, nem nas rotas `/admin` (403). O dono do pedido conseguiu criá-lo e cancelá-lo, mas não marcá-lo como aprovado, o que só um admin faz. O `/admin/query`, com o token de admin, recusou um `DELETE` (400), porque só aceita `SELECT`. Quem se cadastra com `"tipo":"admin"` vira cliente comum. As respostas também perderam campos por segurança: o `/usuarios` não devolve mais a `senha`, e o `/health` não mostra mais `secret_key`, `debug` e `db_path`.
 
 **Projeto 2** (`npm start`)
 
 ```
-WARN PAYMENT_GATEWAY_KEY não definida; gateway em modo simulado.
-INFO LMS API rodando na porta 3000
-INFO Processando cartão final 4444
+[INFO] LMS API rodando na porta 3000
+[INFO] Processando cartão final 4444 no valor 497
 
 POST /api/checkout (sucesso)           antes 200 | depois 200
 POST /api/checkout (cartão recusado)   antes 400 | depois 400
@@ -275,37 +278,39 @@ GET  /api/admin/financial-report       antes 200 | depois 401 (sem token) | 200 
 DELETE /api/users/1                    antes 200 | depois 401 (sem token) | 200 (com token)
 ```
 
-Antes, o log mostrava o número inteiro do cartão e a chave do gateway, e agora mostra só os quatro últimos dígitos do cartão.
+Antes, o log mostrava o número inteiro do cartão e a chave do gateway, e agora mostra só os quatro últimos dígitos do cartão. O checkout também foi testado à parte com o e-mail de uma conta que já existe: com a senha errada ou sem senha, a resposta é 401, e com a senha certa, 200.
 
 **Projeto 3** (`python seed.py` e `python app.py`)
 
 ```
-INFO seed: Seed concluído com sucesso: 3 usuários, 4 categorias, 10 tasks
-WARNING config.settings: SECRET_KEY não definida; usando chave aleatória temporária (os tokens de login deixam de valer quando a aplicação reinicia).
+SECRET_KEY não definida; usando chave aleatória temporária (tokens expiram a cada reinício).
+Seed concluído com sucesso!
+3 usuários
+4 categorias
+10 tasks
  * Debug mode: off
 
 GET /, /health, /tasks, /tasks/1, /tasks/search, /tasks/stats   200 | 200
 GET /tasks/9999                                                 404 | 404
-POST /tasks (válida | título curto)                             201 400 | 201 400
-PUT /tasks/1                                                    200 | 200
 GET /users, /users/1, /users/1/tasks                            200 | 200
 POST /users                                                     201 | 201
 POST /login (certo | errado)                                    200 401 | 200 401
 GET /reports/summary, /reports/user/1, /categories              200 | 200
-POST /categories, PUT /categories/1                             201 200 | 201 200
+POST /tasks (válida | título curto), PUT /tasks/1               201 400 200 | 401 (sem token)
 PUT /users/1                                                    200 | 401 (sem token)
+POST /categories, PUT /categories/1                             201 200 | 401 (sem token)
 DELETE /tasks/2, DELETE /categories/4, DELETE /users/3          200 | 401 (sem token)
 ```
 
-O campo `password` aparecia em quatro respostas e agora não aparece em nenhuma. O login com as senhas originais do seed continua funcionando, e o banco continua em `instance/tasks.db`. O `PUT /users/<id>` também foi testado à parte, com o e-mail e a senha de um admin. Sem token, a resposta é 401. Com o token de um usuário comum ou de um manager, é 403. A dona da conta consegue mudar o próprio nome (200), mas não o próprio `role` (403), e um admin consegue mudar o e-mail de outro usuário (200). Depois desses testes, o admin continuou entrando com a senha original, ou seja, ninguém conseguiu trocá-la.
+O campo `password` aparecia em quatro respostas e agora não aparece em nenhuma. O login com as senhas originais do seed continua funcionando, e o banco continua em `instance/tasks.db`. Nos testes à parte, todas as rotas que gravam responderam 401 sem token e 403 com o token de outro usuário, inclusive o `PUT /users/1` tentando trocar a senha do admin. A dona de uma task conseguiu editá-la (200), mas não passá-la para outra pessoa (403), e criou uma task para si mesma (201). Ela também mudou o próprio nome (200), mas não o próprio `role` (403). Só um admin consegue mexer em categorias. Depois dos testes, o admin continuou entrando com a senha original, ou seja, ninguém conseguiu trocá-la.
 
 ### Comportamento da skill em cada stack
 
-No projeto 1, um Flask com todo o código em quatro arquivos, a skill separou o código em camadas dentro de `src/`, trocou todo o SQL montado com texto por consultas com parâmetros e passou a guardar as senhas com hash scrypt. Um banco criado pela versão antiga é convertido sozinho quando a aplicação sobe. No resumo final, a skill não disse que todos os problemas tinham sido resolvidos e listou dois que ficaram: o AP-03, marcado como `(possible)`, porque as rotas de leitura e gravação continuam abertas numa API que não tem login com token, e parte do AP-11, que ficou para não mudar o status das respostas. Foi nessa execução que apareceram os dois erros corrigidos depois, o `pkill` que deixou a versão antiga respondendo na porta e o `git rm --cached` nos arquivos apagados.
+No projeto 1, um Flask com todo o código em quatro arquivos, a skill separou o código em camadas dentro de `src/`, trocou todo o SQL montado com texto por consultas com parâmetros e passou a guardar as senhas com hash. O login, que só devolvia os dados do usuário, ganhou um token assinado, e as rotas de produtos, pedidos e `/admin` passaram a usar esse token. A senha do admin do seed passou a vir da variável `SEED_ADMIN_PASSWORD`. No primeiro ciclo de validação, a skill achou um erro 500 no `/admin/query` quando o SQL trazia dois comandos, corrigiu e validou de novo. No resumo final, ela listou os riscos que ficaram: as leituras de usuários e pedidos continuam abertas e mostram e-mails e pedidos de outras pessoas, e o `/admin/query`, mesmo só para admin e só leitura, permite ler o banco inteiro, inclusive as senhas, que agora estão guardadas com hash.
 
-No projeto 2, em Express, os callbacks encadeados viraram funções com `async/await`, o checkout e a exclusão de usuário passaram a gravar tudo ou nada numa transação, e a skill parou a aplicação sempre pelo `stop_port.sh`, sem mexer no git. Algumas respostas mudaram sem ser por segurança. O DELETE agora apaga também as matrículas e os pagamentos do usuário, responde "Usuário deletado, com suas matrículas e pagamentos." e devolve 404 para um usuário que não existe. O checkout com pagamento recusado não cria mais o usuário, e um `card` enviado como número, que antes derrubava o servidor, agora recebe 400. Essas mudanças vão contra a regra da skill, que só permite mudar uma resposta por segurança, e foram mantidas por decisão manual, como explicado em "Desafios encontrados".
+No projeto 2, em Express, os callbacks encadeados viraram funções com `async/await`, e o checkout e a exclusão de usuário passaram a gravar tudo ou nada numa transação. Como o projeto não tem login, o relatório e o DELETE passaram a pedir o header `X-Admin-Token`, com o valor da variável `ADMIN_TOKEN`, e o checkout passou a conferir a senha quando o e-mail já tem conta. O DELETE agora apaga também as matrículas e os pagamentos do usuário, e por isso o relatório financeiro deixou de mostrar alunos "Unknown". A skill avisou que isso apaga o histórico financeiro desse usuário e sugeriu anonimizar o usuário, em vez de apagar, se esse histórico for necessário. O checkout com pagamento recusado não cria mais o usuário, e um `card` enviado como número, que antes derrubava o servidor, agora recebe 400.
 
-No projeto 3, que já tinha parte das camadas, nada foi reescrito do zero. A lógica das rotas foi para os controllers, as contagens passaram a ser feitas pelo banco, `Query.get()` virou `db.session.get()`, e o token falso do login virou um token assinado que vale por 24 horas. O `datetime.utcnow()` não entrou como deprecated, porque o projeto usa Python 3.10 e ele só ficou deprecated no 3.12, enquanto a análise manual o incluiu pensando na próxima versão. Na terceira rodada, sem orientação na pausa, a skill aplicou sozinha a regra de "dono ou admin" no `PUT` e no `DELETE` de usuários e no `DELETE` de tasks, e passou a pedir token de admin para apagar categorias. O resumo final deixou claro o que ficou de fora: o `POST` e o `PUT` de tasks e categorias continuam sem login, para não mudar mais respostas, e o MD5 continua no código só para conferir as senhas gravadas pela versão antiga, que passam para scrypt no primeiro login.
+No projeto 3, que já tinha parte das camadas, nada foi reescrito do zero. A lógica das rotas foi para os controllers, as contagens passaram a ser feitas pelo banco, `Query.get()` virou `db.session.get()`, e o token falso do login virou um token assinado que vale por 24 horas. O `datetime.utcnow()` não entrou como deprecated, porque o projeto usa Python 3.10 e ele só ficou deprecated no 3.12, enquanto a análise manual o incluiu pensando na próxima versão. Sem orientação na pausa, a skill montou o mapa de acesso e protegeu todas as rotas que gravam: tasks e usuários aceitam só o dono ou um admin, e categorias só um admin. O cadastro comum continua aberto, e só um admin cria outro admin. O role `manager`, que não tinha nenhum privilégio no código original, é tratado como usuário comum.
 
 Sobre o idioma, o agente escreveu às vezes em português e às vezes em inglês, e os títulos do relatório ficaram em inglês porque seguem o template, que copia o formato do exemplo do desafio.
 
@@ -344,7 +349,7 @@ A skill mostra o resumo da Fase 1 e o relatório da Fase 2 e para na pergunta `P
 ```bash
 cd code-smells-project
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
-ADMIN_TOKEN=um-token-qualquer .venv/bin/python app.py
+SEED_ADMIN_PASSWORD=uma-senha-de-teste .venv/bin/python app.py
 ```
 
 ```bash
@@ -352,9 +357,12 @@ curl -i http://localhost:5000/produtos                      # 200
 curl -i http://localhost:5000/usuarios                      # 200, sem o campo senha
 curl -i -X POST http://localhost:5000/login -H 'Content-Type: application/json' \
   -d '{"email":"joao@email.com","senha":"123456"}'          # 200
-curl -i -X POST http://localhost:5000/admin/reset-db        # 401
-curl -i -X POST http://localhost:5000/admin/reset-db -H 'X-Admin-Token: um-token-qualquer'   # 200
+curl -i -X PUT http://localhost:5000/pedidos/1/status -H 'Content-Type: application/json' \
+  -d '{"status":"cancelado"}'                               # 401, sem token
+curl -i -X POST http://localhost:5000/admin/reset-db        # 401, sem token
 ```
+
+O login devolve um `token`. Com o header `Authorization: Bearer <token>`, um cliente cria e cancela os próprios pedidos, e o admin (`admin@loja.com`, com a senha definida em `SEED_ADMIN_PASSWORD`) mexe em produtos, muda o status de qualquer pedido e usa as rotas `/admin`.
 
 **Projeto 2**
 
@@ -370,6 +378,8 @@ As requisições de `api.http` continuam funcionando, mas as duas rotas de admin
 curl -i -X POST http://localhost:3000/api/checkout -H 'Content-Type: application/json' \
   -d '{"usr":"Guilherme","eml":"gui@fullcycle.com.br","pwd":"senhaforte","c_id":2,"card":"4111222233334444"}'   # 200
 curl -i http://localhost:3000/api/admin/financial-report -H 'X-Admin-Token: um-token-qualquer'                  # 200
+curl -i -X POST http://localhost:3000/api/checkout -H 'Content-Type: application/json' \
+  -d '{"usr":"Outra pessoa","eml":"gui@fullcycle.com.br","pwd":"chute","c_id":1,"card":"4111222233334444"}'   # 401, senha errada
 ```
 
 **Projeto 3**
@@ -390,6 +400,6 @@ curl -i -X PUT http://localhost:5000/users/1 -H 'Content-Type: application/json'
   -d '{"password":"outrasenha"}'                            # 401, sem token
 ```
 
-Antes da refatoração, qualquer pessoa podia criar um admin, mudar os dados de qualquer usuário, como e-mail, senha, `role` e `active`, ou apagar uma conta com todas as tarefas dela. Agora essas operações pedem o header `Authorization: Bearer <token>`, com o token que o `/login` devolve. Editar ou apagar um usuário só é aceito para o dono da conta ou para um admin, e só um admin muda `role` e `active` ou cria outro admin. Com o token de outro usuário, a resposta é 403. O cadastro comum continua aberto.
+Antes da refatoração, qualquer pessoa podia criar um admin, mudar os dados ou as tarefas de qualquer usuário e mexer nas categorias. Agora todas as rotas que gravam pedem o header `Authorization: Bearer <token>`, com o token que o `/login` devolve. Tasks e usuários só aceitam o dono ou um admin, categorias só aceitam admin, e só um admin muda `role` e `active` ou cria outro admin. Com o token de outro usuário, a resposta é 403. O cadastro comum continua aberto.
 
 Cada projeto tem um `.env.example` com as variáveis que a aplicação lê. Se a `SECRET_KEY` não estiver definida, a aplicação cria uma chave aleatória sempre que sobe e avisa no log.

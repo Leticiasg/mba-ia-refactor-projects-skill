@@ -74,16 +74,26 @@ Impacto: o cliente muda a consulta. Ex.: `' OR '1'='1` no login entra sem senha.
 
 ### AP-03 — Endpoint sensível sem autenticação
 
-Rota que executa operação administrativa ou destrutiva, ou que altera dados de um usuário, sem verificar quem chama.
+Rota que executa operação administrativa ou destrutiva, ou que grava dados de um usuário, sem verificar quem chama.
+
+Dados de um usuário são a conta dele e tudo o que pertence a ele: registros com `user_id`/`usuario_id` ou ligados a ele (pedido, tarefa, matrícula, pagamento, comentário).
+
+Limite: o AP-03 cobre rotas de admin (qualquer método) e rotas que gravam (`POST`, `PUT`, `PATCH`, `DELETE`). Uma rota comum que só lê (`GET /users`, `GET /pedidos`) não entra no AP-03, porque fechá-la mudaria o contrato de uma API que nasceu pública. Se ela devolve segredo (senha, hash, chave), o problema é AP-05. Se devolve dado pessoal de outra pessoa (e-mail, pedidos), cite no resumo final da Fase 3 como risco que ficou, sem mudar a rota.
 
 Sinais:
 - Rotas com `admin`, `reset`, `query`, `debug`, `internal` no caminho, ou `DELETE` em massa.
 - Handler que executa SQL recebido no corpo (`cursor.execute(dados["sql"])`).
 - Rota que altera ou apaga a conta de um usuário pelo id (`PUT`/`PATCH`/`DELETE` em `/users/<id>`, troca de e-mail ou de senha) sem confirmar que quem chama é o dono da conta ou um admin.
-- Proteção parcial: a checagem só roda para alguns campos (ex.: exige admin quando o corpo traz `role` ou `active`, mas deixa passar `email` e `password`). Trate como se não houvesse proteção.
+- Rota que cria, altera ou apaga um registro que pertence a um usuário (`PUT /tasks/<id>`, `PUT /pedidos/<id>/status`, `DELETE /comments/<id>`) sem confirmar que quem chama é o dono do registro ou um admin.
+- Ação em nome de outra pessoa: o corpo traz o id ou o e-mail de um usuário (`usuario_id`, `user_id`, `email`) e a rota grava em nome dele sem confirmar a identidade (ex.: criar pedido para qualquer `usuario_id`; checkout que, com o e-mail de uma conta existente, ignora a senha e matricula essa conta).
+- Rota que muda dados de todos, como catálogo, preços, categorias e configurações, sem exigir admin.
+- Proteção parcial: a checagem só roda para alguns campos (ex.: exige admin quando o corpo traz `role` ou `active`, mas deixa passar `email` e `password`) ou só para alguns métodos do mesmo recurso (ex.: `DELETE /tasks/<id>` exige o dono e `PUT /tasks/<id>` não). Trate como se não houvesse proteção.
+- Login que não devolve nada que identifique quem chama depois (sem token nem sessão). Sem isso, nenhuma rota consegue saber quem é o dono. Se o projeto nem tem login, a recomendação é token de admin do ambiente, sem criar login (T03, "Projeto sem login").
 - Ausência de decorator, middleware ou checagem de token/sessão antes da operação.
 
-Impacto: qualquer pessoa lê, altera ou apaga dados. Trocar o e-mail ou a senha de outra conta, inclusive a de um admin, permite tomar essa conta.
+Impacto: qualquer pessoa lê, altera ou apaga dados. Trocar o e-mail ou a senha de outra conta, inclusive a de um admin, permite tomar essa conta; mudar o pedido ou a tarefa de outra pessoa estraga os dados dela.
+
+Como auditar: monte o mapa de acesso descrito na seção "Mapa de acesso" de `report-template.md` e confira cada linha. Toda rota que grava precisa ter uma resposta para "quem pode chamar". Se a resposta for "qualquer pessoa", justifique (ex.: cadastro e login são abertos por natureza) ou entre no finding.
 
 ### AP-04 — God Class / God File
 

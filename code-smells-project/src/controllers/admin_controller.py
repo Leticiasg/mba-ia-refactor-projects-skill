@@ -1,3 +1,4 @@
+"""Operações administrativas."""
 import logging
 import sqlite3
 
@@ -7,19 +8,19 @@ from src.models import admin_model
 logger = logging.getLogger(__name__)
 
 
-def resetar_banco(db):
-    admin_model.apagar_tudo(db)
-    logger.warning("BANCO DE DADOS RESETADO")
+def resetar_banco(db, solicitante):
+    admin_model.resetar(db)
+    logger.warning("Banco de dados resetado pelo usuário %s", solicitante["id"])
 
 
-def executar_consulta(database_path, dados):
-    sql = dados.get("sql", "")
-    if not sql or not isinstance(sql, str):
+def executar_consulta(readonly_db, dados):
+    sql = (dados or {}).get("sql", "")
+    if not isinstance(sql, str) or not sql.strip():
         raise ValidationError("Query não informada")
     if not sql.strip().upper().startswith("SELECT"):
         raise ValidationError("Apenas consultas SELECT são permitidas")
     try:
-        return admin_model.executar_select_somente_leitura(database_path, sql)
-    except sqlite3.Error:
-        logger.warning("Consulta administrativa inválida", exc_info=True)
+        return admin_model.executar_consulta(readonly_db, sql)
+    except (sqlite3.Error, sqlite3.Warning) as erro:  # Warning: mais de uma instrução no texto
+        logger.info("Consulta administrativa inválida: %s", erro)
         raise ValidationError("Query inválida")

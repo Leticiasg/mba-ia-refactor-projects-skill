@@ -1,18 +1,15 @@
-from flask import Blueprint
+from datetime import datetime
 
-from models.database import utcnow
+from flask import Blueprint, jsonify
 
 health_bp = Blueprint('health', __name__)
-
-API_NAME = 'Task Manager API'
-API_VERSION = '1.0'
 
 
 @health_bp.route('/health')
 def health():
-    return {'status': 'ok', 'timestamp': str(utcnow())}
+    return jsonify({'status': 'ok', 'timestamp': str(datetime.now())})
 
 
 @health_bp.route('/')
 def index():
-    return {'message': API_NAME, 'version': API_VERSION}
+    return jsonify({'message': 'Task Manager API', 'version': '1.0'})

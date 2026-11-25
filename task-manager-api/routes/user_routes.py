@@ -1,7 +1,7 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, g, jsonify, request
 
 from controllers import user_controller
-from middlewares.auth import current_user, require_auth
+from middlewares.auth import login_required, optional_auth
 
 user_bp = Blueprint('users', __name__)
 
@@ -17,22 +17,23 @@ def get_user(user_id):
 
 
 @user_bp.route('/users', methods=['POST'])
+@optional_auth
 def create_user():
-    user = user_controller.create_user(request.get_json(silent=True), current_user())
+    user = user_controller.create_user(request.get_json(silent=True), g.current_user)
     return jsonify(user), 201
 
 
 @user_bp.route('/users/<int:user_id>', methods=['PUT'])
-@require_auth
+@login_required
 def update_user(user_id):
-    user = user_controller.update_user(user_id, request.get_json(silent=True), current_user())
+    user = user_controller.update_user(user_id, request.get_json(silent=True), g.current_user)
     return jsonify(user), 200
 
 
 @user_bp.route('/users/<int:user_id>', methods=['DELETE'])
-@require_auth
+@login_required
 def delete_user(user_id):
-    user_controller.delete_user(user_id, current_user())
+    user_controller.delete_user(user_id, g.current_user)
     return jsonify({'message': 'Usuário deletado com sucesso'}), 200
 
 

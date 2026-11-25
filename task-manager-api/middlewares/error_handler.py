@@ -8,20 +8,17 @@ from models.database import db
 
 logger = logging.getLogger(__name__)
 
-ERROR_FIELD = 'error'
-INTERNAL_ERROR_MESSAGE = 'Erro interno'
-
 
 def register_error_handlers(app):
     @app.errorhandler(AppError)
     def handle_app_error(error):
         db.session.rollback()
-        return jsonify({ERROR_FIELD: error.message}), error.status_code
+        return jsonify({'error': error.message}), error.status_code
 
     @app.errorhandler(Exception)
-    def handle_unexpected_error(error):
-        if isinstance(error, HTTPException):
+    def handle_unexpected(error):
+        if isinstance(error, HTTPException):  # 404 de rota inexistente, 405 etc.
             return error
         db.session.rollback()
-        logger.exception('Erro não tratado')
-        return jsonify({ERROR_FIELD: INTERNAL_ERROR_MESSAGE}), 500
+        logger.exception("Erro não tratado")
+        return jsonify({'error': 'Erro interno'}), 500

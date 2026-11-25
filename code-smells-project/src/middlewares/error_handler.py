@@ -1,3 +1,4 @@
+"""Tratamento de erro centralizado: nunca devolve detalhes internos ao cliente."""
 import logging
 
 from flask import jsonify
@@ -11,9 +12,10 @@ logger = logging.getLogger(__name__)
 def register_error_handlers(app):
     @app.errorhandler(AppError)
     def handle_app_error(error):
-        if error.body is not None:
-            return jsonify(error.body), error.status_code
-        return jsonify({"erro": error.message, **error.extra}), error.status_code
+        body = {"erro": error.message}
+        if error.sucesso is not None:
+            body["sucesso"] = error.sucesso
+        return jsonify(body), error.status_code
 
     @app.errorhandler(Exception)
     def handle_unexpected(error):

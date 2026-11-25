@@ -1,34 +1,33 @@
-"""Constantes de domínio usadas por models e controllers."""
+"""Constantes de domínio do gerenciador de tarefas."""
 
-STATUS_PENDING = 'pending'
-STATUS_IN_PROGRESS = 'in_progress'
-STATUS_DONE = 'done'
-STATUS_CANCELLED = 'cancelled'
+STATUS_PENDING = "pending"
+STATUS_IN_PROGRESS = "in_progress"
+STATUS_DONE = "done"
+STATUS_CANCELLED = "cancelled"
 VALID_STATUSES = (STATUS_PENDING, STATUS_IN_PROGRESS, STATUS_DONE, STATUS_CANCELLED)
 CLOSED_STATUSES = (STATUS_DONE, STATUS_CANCELLED)
 DEFAULT_STATUS = STATUS_PENDING
 
-PRIORITY_MIN = 1
-PRIORITY_MAX = 5
-DEFAULT_PRIORITY = 3
-HIGH_PRIORITY_MAX = 2
-PRIORITY_LABELS = {1: 'critical', 2: 'high', 3: 'medium', 4: 'low', 5: 'minimal'}
+ROLE_USER = "user"
+ROLE_ADMIN = "admin"
+ROLE_MANAGER = "manager"
+VALID_ROLES = (ROLE_USER, ROLE_ADMIN, ROLE_MANAGER)
+DEFAULT_ROLE = ROLE_USER
 
 TITLE_MIN_LENGTH = 3
 TITLE_MAX_LENGTH = 200
-DUE_DATE_FORMAT = '%Y-%m-%d'
-TAGS_SEPARATOR = ','
 
-ROLE_USER = 'user'
-ROLE_ADMIN = 'admin'
-ROLE_MANAGER = 'manager'
-VALID_ROLES = (ROLE_USER, ROLE_ADMIN, ROLE_MANAGER)
-DEFAULT_ROLE = ROLE_USER
+PRIORITY_MIN = 1
+PRIORITY_MAX = 5
+DEFAULT_PRIORITY = 3
+HIGH_PRIORITY_MAX = 2  # prioridades 1 e 2 contam como "alta"
+PRIORITY_LABELS = {1: "critical", 2: "high", 3: "medium", 4: "low", 5: "minimal"}
+
 MIN_PASSWORD_LENGTH = 4
-EMAIL_PATTERN = r'^[a-zA-Z0-9+_.-]+@[a-zA-Z0-9.-]+$'
+EMAIL_PATTERN = r"^[a-zA-Z0-9+_.-]+@[a-zA-Z0-9.-]+$"
 
-DEFAULT_CATEGORY_COLOR = '#000000'
-COLOR_PATTERN = r'^#[0-9a-fA-F]{6}$'
+DEFAULT_CATEGORY_COLOR = "#000000"
+COLOR_PATTERN = r"^#[0-9a-fA-F]{6}$"
 
+DATE_FORMAT = "%Y-%m-%d"
 RECENT_ACTIVITY_DAYS = 7
-PERCENT_DECIMALS = 2

@@ -64,10 +64,11 @@ Leia `references/anti-patterns.md` e `references/report-template.md`.
 2. Para cada anti-pattern de `references/anti-patterns.md`, procure os sinais de detecção. Anote cada ocorrência com `arquivo:linha` exato. Confira o número da linha no arquivo antes de escrever.
 3. Agrupe ocorrências do mesmo anti-pattern num só finding, com todas as linhas.
 4. Verifique APIs deprecated (AP-15) contra as versões detectadas na Fase 1.
-5. Audite a própria auditoria, como manda a seção "Regras de uso" de `references/anti-patterns.md`: retire falsos positivos e marque como `(possible)` o que tem evidência parcial.
-6. Ordene de CRITICAL para LOW e confira se o `Summary` e o `Total` batem com a lista.
-7. Imprima o relatório exatamente no formato da seção "Formato" de `references/report-template.md`.
-8. Imprima `Phase 2 complete. Proceed with refactoring (Phase 3)? [y/n]` e **encerre a sua resposta aqui**. Espere o usuário responder. Não chame nenhuma ferramenta de edição, não rode instalação e não suba a aplicação antes da resposta.
+5. Monte o mapa de acesso da seção "Mapa de acesso" de `references/report-template.md`, cobrindo todas as rotas que gravam dados. Cada rota mais aberta do que deveria entra no AP-03.
+6. Audite a própria auditoria, como manda a seção "Regras de uso" de `references/anti-patterns.md`: retire falsos positivos e marque como `(possible)` o que tem evidência parcial.
+7. Ordene de CRITICAL para LOW e confira se o `Summary` e o `Total` batem com a lista.
+8. Imprima o relatório exatamente no formato da seção "Formato" de `references/report-template.md`.
+9. Imprima `Phase 2 complete. Proceed with refactoring (Phase 3)? [y/n]` e **encerre a sua resposta aqui**. Espere o usuário responder. Não chame nenhuma ferramenta de edição, não rode instalação e não suba a aplicação antes da resposta.
 
 Respostas:
 - **"n"** (ou qualquer recusa): diga que nada foi alterado e pare.
@@ -92,7 +93,8 @@ Leia `references/mvc-guidelines.md` e `references/refactoring-playbook.md`. Use 
 2. Para cada finding do relatório, aplique a transformação indicada em `Recommendation` (Txx), na ordem sugerida no topo de `references/refactoring-playbook.md`.
 3. Preserve o contrato da API e o comando para rodar (seção "Princípios" de `references/mvc-guidelines.md`).
 4. Atualize os scripts que importam módulos movidos (seed, testes) e o arquivo de dependências, se algo mudar.
-5. Anote cada exceção de segurança que muda uma resposta (ex.: campo `senha` removido, rota admin exigindo token, edição de usuário aceita só do dono ou de um admin).
+5. Proteja cada rota do mapa de acesso conforme a coluna "Quem deveria poder" (T03), inclusive as que o relatório não citou linha a linha.
+6. Anote cada exceção de segurança que muda uma resposta (ex.: campo `senha` removido, rota admin exigindo token, edição de usuário ou de pedido aceita só do dono ou de um admin).
 
 ### 3.3 Validação
 
@@ -100,9 +102,10 @@ Leia `references/mvc-guidelines.md` e `references/refactoring-playbook.md`. Use 
 2. Se o projeto tem seed, rode-o com o código novo. Ele precisa terminar sem erro.
 3. Suba a aplicação refatorada pelo **mesmo comando** da Fase 1 e espere com `scripts/wait_for_http.sh`. Leia o começo do log: erro de import ou de boot é falha.
 4. Rode `scripts/run_requests.sh` com o mesmo `<tmp>/requests.tsv`, gravando em `<tmp>/after.txt`, e depois `scripts/compare_results.sh <tmp>/before.txt <tmp>/after.txt`. Cada linha `DIFF` só é aceita se estiver na lista de exceções de segurança. Para conferir uma exceção (ex.: rota que agora exige token), acrescente a requisição com o header num arquivo à parte e rode de novo.
-5. Se algo falhar, pare a aplicação com `scripts/stop_port.sh <porta>`, corrija o código e repita a partir do passo 1. Nunca suba uma versão nova sem antes confirmar que a porta ficou livre, ou a versão antiga continua respondendo no lugar dela. Faça no máximo 5 ciclos; se ainda falhar, pare e mostre ao usuário o que quebrou.
-6. Pare a aplicação com `scripts/stop_port.sh <porta>` e apague o banco criado na validação, se ele não existia antes. Restaure a cópia guardada no 3.1, se havia uma.
-7. Releia o código novo contra `references/anti-patterns.md` e liste o que ainda restar. Não declare "zero anti-patterns" sem ter conferido.
+5. Teste o mapa de acesso num arquivo de requisições à parte: para cada rota que deveria ser restrita, uma chamada sem token, uma com o token de outro usuário comum e uma com o token do dono ou de um admin. Uma rota restrita que responde 2xx sem token ou com o token de outro usuário é falha.
+6. Se algo falhar, pare a aplicação com `scripts/stop_port.sh <porta>`, corrija o código e repita a partir do passo 1. Nunca suba uma versão nova sem antes confirmar que a porta ficou livre, ou a versão antiga continua respondendo no lugar dela. Faça no máximo 5 ciclos; se ainda falhar, pare e mostre ao usuário o que quebrou.
+7. Pare a aplicação com `scripts/stop_port.sh <porta>` e apague o banco criado na validação, se ele não existia antes. Restaure a cópia guardada no 3.1, se havia uma.
+8. Releia o código novo contra `references/anti-patterns.md` e liste o que ainda restar. Não declare "zero anti-patterns" sem ter conferido.
 
 ### 3.4 Saída da Fase 3
 

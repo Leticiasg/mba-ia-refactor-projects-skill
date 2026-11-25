@@ -8,7 +8,7 @@ sistema_bp = Blueprint("sistema", __name__)
 
 @sistema_bp.route("/", methods=["GET"])
 def index():
-    return jsonify(sistema_controller.boas_vindas())
+    return jsonify(sistema_controller.index())
 
 
 @sistema_bp.route("/health", methods=["GET"])

@@ -1,34 +1,33 @@
-"""Configuração da aplicação: variáveis de ambiente e constantes de domínio."""
-import logging
+"""Configuração lida do ambiente e constantes de domínio."""
 import os
 import secrets
+from pathlib import Path
 
-logger = logging.getLogger(__name__)
+BASE_DIR = Path(__file__).resolve().parents[2]
 
 
-def _env_bool(nome, padrao="false"):
-    return os.environ.get(nome, padrao).strip().lower() in ("1", "true", "yes", "on")
+def _env_bool(name, default="false"):
+    return os.environ.get(name, default).strip().lower() in ("1", "true", "yes")
+
+
+SECRET_KEY_FROM_ENV = bool(os.environ.get("SECRET_KEY"))
 
 
 class Settings:
     SECRET_KEY = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
     DEBUG = _env_bool("FLASK_DEBUG")
-    HOST = os.environ.get("HOST", "0.0.0.0")
+    HOST = os.environ.get("HOST", "127.0.0.1")
     PORT = int(os.environ.get("PORT", "5000"))
-    DATABASE_PATH = os.environ.get("DATABASE_PATH", "loja.db")
-    ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "")
+    DATABASE_PATH = os.environ.get("DATABASE_PATH", str(BASE_DIR / "loja.db"))
+    TOKEN_MAX_AGE_SECONDS = int(os.environ.get("TOKEN_MAX_AGE_SECONDS", str(8 * 60 * 60)))
     AMBIENTE = os.environ.get("APP_ENV", "producao")
+    SEED_ADMIN_PASSWORD = os.environ.get("SEED_ADMIN_PASSWORD")
 
 
-def avisos_de_configuracao():
-    if not os.environ.get("SECRET_KEY"):
-        logger.warning("SECRET_KEY não definida; usando chave aleatória temporária.")
-    if not Settings.ADMIN_TOKEN:
-        logger.warning("ADMIN_TOKEN não definido; rotas /admin ficam bloqueadas.")
+API_VERSION = "1.0.0"
 
-
-# --- Constantes de domínio ---
-API_VERSAO = "1.0.0"
+TIPO_ADMIN = "admin"
+TIPO_CLIENTE = "cliente"
 
 CATEGORIAS_VALIDAS = ["informatica", "moveis", "vestuario", "geral", "eletronicos", "livros"]
 CATEGORIA_PADRAO = "geral"
@@ -41,8 +40,8 @@ STATUS_ENVIADO = "enviado"
 STATUS_ENTREGUE = "entregue"
 STATUS_CANCELADO = "cancelado"
 STATUS_PEDIDO_VALIDOS = [STATUS_PENDENTE, STATUS_APROVADO, STATUS_ENVIADO, STATUS_ENTREGUE, STATUS_CANCELADO]
-
-TIPO_USUARIO_PADRAO = "cliente"
+# Status que o próprio dono do pedido pode aplicar; os demais exigem admin.
+STATUS_PERMITIDOS_AO_DONO = [STATUS_CANCELADO]
 
 # (faturamento mínimo exclusivo, taxa de desconto), da maior faixa para a menor
 FAIXAS_DESCONTO = [(10000, 0.10), (5000, 0.05), (1000, 0.02)]

@@ -65,6 +65,17 @@ Phase 2 complete. Proceed with refactoring (Phase 3)? [y/n]
 
 Nada é criado ou alterado antes da resposta.
 
+## Mapa de acesso
+
+Antes de fechar o relatório, liste num rascunho todas as rotas que gravam dados (`POST`, `PUT`, `PATCH`, `DELETE`) e todas as rotas de admin, de qualquer método. Leituras comuns ficam fora do mapa (veja o limite do AP-03 em `anti-patterns.md`). Para cada rota, anote:
+
+| Rota | De quem é o dado | Quem pode chamar hoje | Quem deveria poder |
+|---|---|---|---|
+| PUT /tasks/<id> | do dono da task | qualquer pessoa | dono ou admin |
+| POST /users | conta nova | qualquer pessoa | qualquer pessoa (cadastro), admin para criar admin |
+
+Toda linha em que "hoje" é mais aberto do que "deveria" entra no AP-03, com o `arquivo:linha` da rota. O mapa não vai para o relatório, mas a Fase 3 usa a coluna "Quem deveria poder" para proteger e testar cada rota.
+
 ## Gravação do arquivo
 
 Só depois que o usuário responder "y".

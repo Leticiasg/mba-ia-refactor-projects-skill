@@ -1,13 +1,15 @@
 module.exports = (db) => ({
-  findByEmail: (email) => db.getAsync('SELECT id, name, email FROM users WHERE email = ?', [email]),
+  findByEmail: (email) =>
+    db.getAsync('SELECT id, pass FROM users WHERE email = ?', [email]),
 
-  async create({ name, email, passwordHash }) {
-    const { lastID } = await db.runAsync('INSERT INTO users (name, email, pass) VALUES (?, ?, ?)', [name, email, passwordHash]);
-    return lastID;
+  create: async ({ name, email, passwordHash }) => {
+    const result = await db.runAsync('INSERT INTO users (name, email, pass) VALUES (?, ?, ?)',
+      [name, email, passwordHash]);
+    return result.lastID;
   },
 
-  async deleteById(userId) {
-    const { changes } = await db.runAsync('DELETE FROM users WHERE id = ?', [userId]);
-    return changes;
+  deleteById: async (userId) => {
+    const result = await db.runAsync('DELETE FROM users WHERE id = ?', [userId]);
+    return result.changes;
   },
 });

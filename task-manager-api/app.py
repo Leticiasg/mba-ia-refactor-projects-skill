@@ -1,18 +1,20 @@
-"""Entry point e composition root: `python app.py`."""
+"""Composition root: cria a app, carrega config, liga banco, rotas, serviços e tratamento de erro."""
 import logging
 
 from flask import Flask
 from flask_cors import CORS
 
-from config.settings import Settings, warn_about_missing_secrets
+from config.settings import Settings
 from middlewares.error_handler import register_error_handlers
-from models.database import db
+from models import db
 from routes.category_routes import category_bp
 from routes.health_routes import health_bp
 from routes.report_routes import report_bp
 from routes.task_routes import task_bp
 from routes.user_routes import user_bp
 from services.notification_service import NotificationService
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
 
 def create_app(settings=Settings):
@@ -32,8 +34,6 @@ def create_app(settings=Settings):
     return app
 
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(name)s: %(message)s')
-warn_about_missing_secrets()
 app = create_app()
 
 if __name__ == '__main__':

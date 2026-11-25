@@ -1,6 +1,6 @@
 # task-manager-api
 
-API de Task Manager em Python/Flask usada como entrada do desafio `refactor-arch`, já refatorada para MVC.
+API de Task Manager em Python/Flask usada como entrada do desafio `refactor-arch`. Diferente dos outros projetos, este já possui alguma separação de camadas (`models/`, `routes/`, `services/`, `utils/`), mas ainda contém problemas arquiteturais e de qualidade.
 
 ## Como rodar
 
@@ -10,31 +10,20 @@ python seed.py
 python app.py
 ```
 
-A aplicação sobe em `http://localhost:5000`. O `seed.py` recria o banco SQLite (`instance/tasks.db`) com usuários, categorias e tasks de exemplo.
+A aplicação sobe em `http://localhost:5000`. O `seed.py` popula o banco SQLite (`tasks.db`) com usuários, categorias e tasks de exemplo — **rode-o antes do primeiro boot**, caso contrário os endpoints vão retornar listas vazias.
 
 ## Configuração
 
-As variáveis ficam em `.env.example` (copie para `.env`). Sem `SECRET_KEY`, a aplicação gera uma chave temporária a cada boot e os tokens de login deixam de valer ao reiniciar. O modo debug fica desligado, a menos que `FLASK_DEBUG=true`. Notificações por e-mail só são enviadas com as variáveis `SMTP_*` preenchidas.
-
-## Estrutura
-
-| Pasta | Camada |
-|---|---|
-| `app.py` | Entry point e composition root (`create_app()`) |
-| `config/` | Configuração (ambiente) e constantes de domínio |
-| `models/` | Entidades SQLAlchemy, consultas e regras da entidade |
-| `controllers/` | Casos de uso, validação e permissões |
-| `routes/` | View: blueprints que só recebem e respondem |
-| `services/` | Integração externa (e-mail) |
-| `middlewares/` | Erros de domínio, handler central e autenticação |
+As variáveis de ambiente estão em `.env.example` (copie para `.env`). Sem `SECRET_KEY`, a aplicação gera uma chave aleatória a cada boot e os tokens deixam de valer ao reiniciar. O modo debug fica desligado, a menos que `FLASK_DEBUG=true`.
 
 ## Autenticação
 
-`POST /login` devolve um `token` assinado. Envie-o como `Authorization: Bearer <token>` em:
+`POST /login` devolve um `token` assinado. Envie-o como `Authorization: Bearer <token>` nas rotas que gravam dados:
 
-- `PUT /users/<id>` e `DELETE /users/<id>`: só o próprio usuário ou um admin; `role` e `active` só admin;
-- `POST /users` com `role` diferente de `user`: só admin;
-- `DELETE /tasks/<id>`: dono da task ou admin;
-- `DELETE /categories/<id>`: só admin.
+- `POST /tasks`: qualquer usuário logado; usuário comum só cria tasks para si, admin atribui a qualquer um.
+- `PUT` e `DELETE /tasks/<id>`: dono da task ou admin.
+- `PUT` e `DELETE /users/<id>`: o próprio usuário ou admin; `role` e `active` só admin.
+- `POST /users`: aberto para cadastro com role `user`; outros roles exigem admin.
+- `POST`, `PUT` e `DELETE /categories`: só admin.
 
-Usuários do seed: `joao@email.com` / `1234` (admin), `maria@email.com` / `abcd`, `pedro@email.com` / `pass`.
+Estrutura: `routes/` (camada HTTP), `controllers/` (regras e validação), `models/` (ORM e consultas), `services/` (e-mail), `middlewares/` (auth e erros), `config/` (settings e constantes).

@@ -1,8 +1,7 @@
 const express = require('express');
 const asyncHandler = require('../middlewares/asyncHandler');
-const requireAdmin = require('../middlewares/requireAdmin');
 
-module.exports = (userController) => {
+module.exports = (userController, requireAdmin) => {
   const router = express.Router();
 
   router.delete('/api/users/:id', requireAdmin, asyncHandler(async (req, res) => {

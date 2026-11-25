@@ -1,13 +1,10 @@
-const { PAYMENT_STATUS, APPROVED_CARD_PREFIX } = require('../config/settings');
+const { PAYMENT_STATUS, APPROVED_CARD_PREFIX, CARD_DIGITS_IN_LOG } = require('../config/constants');
 
-// Integração com o gateway de pagamento (simulada: aprova pelo prefixo do cartão).
-module.exports = ({ gatewayKey, logger }) => {
-  if (!gatewayKey) logger.warn('PAYMENT_GATEWAY_KEY não definida; gateway em modo simulado.');
-
-  return {
-    authorize({ cardNumber }) {
-      logger.info(`Processando cartão final ${cardNumber.slice(-4)}`);
-      return cardNumber.startsWith(APPROVED_CARD_PREFIX) ? PAYMENT_STATUS.PAID : PAYMENT_STATUS.DENIED;
-    },
-  };
-};
+// Gateway de pagamento simulado. A chave vem da config e nunca vai para o log.
+module.exports = ({ gatewayKey, logger }) => ({
+  async charge(cardNumber, amount) {
+    if (!gatewayKey) logger.debug('PAYMENT_GATEWAY_KEY não definida; usando gateway simulado.');
+    logger.info(`Processando cartão final ${cardNumber.slice(-CARD_DIGITS_IN_LOG)} no valor ${amount}`);
+    return cardNumber.startsWith(APPROVED_CARD_PREFIX) ? PAYMENT_STATUS.PAID : PAYMENT_STATUS.DENIED;
+  },
+});

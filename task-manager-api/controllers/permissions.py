@@ -1,7 +1,5 @@
 from middlewares.errors import ForbiddenError, UnauthorizedError
 
-FORBIDDEN_MESSAGE = 'Sem permissão'
-
 
 def ensure_authenticated(requester):
     if requester is None:
@@ -11,10 +9,11 @@ def ensure_authenticated(requester):
 def ensure_admin(requester):
     ensure_authenticated(requester)
     if not requester.is_admin():
-        raise ForbiddenError(FORBIDDEN_MESSAGE)
+        raise ForbiddenError('Acesso restrito a administradores')
 
 
 def ensure_owner_or_admin(requester, owner_id):
     ensure_authenticated(requester)
-    if requester.id != owner_id and not requester.is_admin():
-        raise ForbiddenError(FORBIDDEN_MESSAGE)
+    if owner_id is None or requester.id != owner_id:
+        if not requester.is_admin():
+            raise ForbiddenError('Sem permissão para alterar este recurso')

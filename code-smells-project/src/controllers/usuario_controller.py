@@ -1,6 +1,9 @@
+"""Casos de uso de usuários e login."""
 import logging
 
-from src.config.settings import TIPO_USUARIO_PADRAO
+from werkzeug.security import check_password_hash, generate_password_hash
+
+from src.config.settings import TIPO_CLIENTE
 from src.middlewares.errors import NotFoundError, UnauthorizedError, ValidationError
 from src.models import usuario_model
 
@@ -9,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 def _texto(dados, campo):
     valor = dados.get(campo, "")
-    return valor if isinstance(valor, str) else ""
+    return valor.strip() if isinstance(valor, str) else ""
 
 
 def listar(db):
@@ -18,7 +21,7 @@ def listar(db):
 
 def buscar(db, usuario_id):
     usuario = usuario_model.buscar_por_id(db, usuario_id)
-    if not usuario:
+    if usuario is None:
         raise NotFoundError("Usuário não encontrado")
     return usuario
 
@@ -26,22 +29,35 @@ def buscar(db, usuario_id):
 def criar(db, dados):
     if not dados:
         raise ValidationError("Dados inválidos")
-    nome, email, senha = _texto(dados, "nome"), _texto(dados, "email"), _texto(dados, "senha")
-    if not nome or not email or not senha:
+    nome = _texto(dados, "nome")
+    email = _texto(dados, "email")
+    senha = dados.get("senha", "")
+    if not nome or not email or not isinstance(senha, str) or not senha:
         raise ValidationError("Nome, email e senha são obrigatórios")
-    with db:
-        usuario_id = usuario_model.inserir(db, nome, email, senha, TIPO_USUARIO_PADRAO)
-    logger.info("Usuário criado: id %s", usuario_id)
+    if usuario_model.email_existe(db, email):
+        raise ValidationError("Email já cadastrado")
+
+    # Cadastro público sempre cria cliente; o tipo não vem do corpo.
+    usuario_id = usuario_model.inserir(db, nome, email, generate_password_hash(senha), TIPO_CLIENTE)
+    logger.info("Usuário %s criado", usuario_id)
     return usuario_id
 
 
-def login(db, dados):
-    email, senha = _texto(dados, "email"), _texto(dados, "senha")
-    if not email or not senha:
+def autenticar(db, dados):
+    email = _texto(dados, "email")
+    senha = dados.get("senha", "")
+    if not email or not isinstance(senha, str) or not senha:
         raise ValidationError("Email e senha são obrigatórios")
-    usuario = usuario_model.autenticar(db, email, senha)
-    if not usuario:
-        logger.info("Login falhou")
-        raise UnauthorizedError("Email ou senha inválidos", extra={"sucesso": False})
-    logger.info("Login bem-sucedido: usuario %s", usuario["id"])
-    return usuario
+
+    credenciais = usuario_model.buscar_credenciais(db, email)
+    if credenciais is None or not check_password_hash(credenciais["senha"], senha):
+        logger.info("Falha de login")
+        raise UnauthorizedError("Email ou senha inválidos", sucesso=False)
+
+    logger.info("Login bem-sucedido do usuário %s", credenciais["id"])
+    return {
+        "id": credenciais["id"],
+        "nome": credenciais["nome"],
+        "email": credenciais["email"],
+        "tipo": credenciais["tipo"],
+    }

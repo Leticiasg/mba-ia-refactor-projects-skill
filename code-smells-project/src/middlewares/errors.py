@@ -4,11 +4,11 @@
 class AppError(Exception):
     status_code = 500
 
-    def __init__(self, message, extra=None, body=None):
+    def __init__(self, message, sucesso=None):
         super().__init__(message)
         self.message = message
-        self.extra = extra or {}
-        self.body = body
+        # Algumas respostas originais trazem "sucesso": false junto do erro.
+        self.sucesso = sucesso
 
 
 class ValidationError(AppError):
@@ -19,9 +19,9 @@ class UnauthorizedError(AppError):
     status_code = 401
 
 
+class ForbiddenError(AppError):
+    status_code = 403
+
+
 class NotFoundError(AppError):
     status_code = 404
-
-
-class ServiceUnavailableError(AppError):
-    status_code = 500

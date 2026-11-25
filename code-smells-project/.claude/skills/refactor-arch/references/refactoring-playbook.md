@@ -183,9 +183,17 @@ function requireOwnerOrAdmin(req, res, next) {
 }
 ```
 
-Na Fase 3, confira com três chamadas: sem token (401), com o token de outro usuário comum (403) e com o token do dono ou de um admin (200).
+A mesma regra vale para todo registro que pertence a um usuário (pedido, tarefa, matrícula): compare o dono do registro (`task.user_id`) com quem chama. Na criação, o dono é quem chama. Ignore o `user_id` do corpo, ou só aceite outro valor de um admin. Para dados de todos (catálogo, categorias), exija admin em todos os métodos que gravam, e não só no `DELETE`.
 
-Rota que executa SQL vindo do cliente: além do token, aceite só `SELECT` e use uma conexão somente leitura (`sqlite3.connect("file:loja.db?mode=ro", uri=True)`), ou remova a rota se o projeto não depende dela e registre a remoção.
+**Login sem token.** Se o projeto tem login, mas ele não devolve token nem sessão, crie um token assinado no login (`itsdangerous` no Flask, `crypto.createHmac` no Node) e devolva-o num campo novo, mantendo os campos antigos. Campo novo não quebra o contrato. As rotas passam a ler `Authorization: Bearer <token>`.
+
+**Projeto sem login.** Não crie rota de login, coluna de papel nem cadastro de sessão: isso é funcionalidade nova, não refatoração. Use o token de admin vindo do ambiente (exemplo acima) nas rotas de admin, e o que seria "dono ou admin" fica só para admin. Onde o corpo já traz uma senha (ex.: checkout), confira essa senha antes de agir em nome de uma conta existente.
+
+**Uma conta existente não serve de atalho.** Se a rota cria a conta quando o e-mail é novo e usa a conta existente quando não é, confira a senha da conta existente antes de gravar em nome dela; senha errada responde 401.
+
+Na Fase 3, confira cada rota protegida com três chamadas: sem token (401), com o token de outro usuário comum (403) e com o token do dono ou de um admin (200).
+
+Rota que executa SQL vindo do cliente: além do token, aceite só `SELECT` e use uma conexão somente leitura (`sqlite3.connect("file:loja.db?mode=ro", uri=True)`), Não remova a rota: o contrato continua o mesmo, e o token mais a conexão somente leitura já fecham o risco.
 
 **JavaScript — antes**
 ```js

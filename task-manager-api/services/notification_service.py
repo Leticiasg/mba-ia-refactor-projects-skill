@@ -1,51 +1,55 @@
-"""Notificações por e-mail (SMTP). Sem SMTP configurado no ambiente, nada é enviado."""
+"""Envio de notificações por e-mail (SMTP). Desligado enquanto SMTP_HOST não estiver configurado."""
 import logging
 import smtplib
 from email.message import EmailMessage
 
 logger = logging.getLogger(__name__)
 
-SMTP_TIMEOUT_SECONDS = 10
-
 
 class NotificationService:
-    def __init__(self, host, port, user, password, sender):
+    def __init__(self, host, port, user, password):
         self.host = host
         self.port = port
         self.user = user
         self.password = password
-        self.sender = sender
 
     @classmethod
     def from_config(cls, config):
-        return cls(config['SMTP_HOST'], config['SMTP_PORT'], config['SMTP_USER'],
-                   config['SMTP_PASSWORD'], config['SMTP_SENDER'])
+        return cls(config['SMTP_HOST'], config['SMTP_PORT'], config['SMTP_USER'], config['SMTP_PASSWORD'])
 
-    def is_configured(self):
-        return bool(self.host and self.user and self.password and self.sender)
+    @property
+    def enabled(self):
+        return bool(self.host and self.user)
 
     def send_email(self, recipient, subject, body):
-        if not self.is_configured():
-            logger.debug('SMTP não configurado; notificação "%s" não enviada', subject)
+        if not self.enabled:
+            logger.debug("SMTP não configurado; e-mail '%s' não enviado.", subject)
             return False
         message = EmailMessage()
-        message['From'] = self.sender
-        message['To'] = recipient
         message['Subject'] = subject
+        message['From'] = self.user
+        message['To'] = recipient
         message.set_content(body)
         try:
-            with smtplib.SMTP(self.host, self.port, timeout=SMTP_TIMEOUT_SECONDS) as server:
+            with smtplib.SMTP(self.host, self.port, timeout=10) as server:
                 server.starttls()
                 server.login(self.user, self.password)
                 server.send_message(message)
         except (smtplib.SMTPException, OSError):
-            logger.exception('Falha ao enviar notificação "%s"', subject)
+            logger.exception("Falha ao enviar e-mail '%s'", subject)
             return False
-        logger.info('Notificação "%s" enviada', subject)
+        logger.info("E-mail '%s' enviado", subject)
         return True
 
     def notify_task_assigned(self, user, task):
-        subject = f'Nova task atribuída: {task.title}'
-        body = (f"Olá {user.name},\n\nA task '{task.title}' foi atribuída a você.\n\n"
-                f'Prioridade: {task.priority}\nStatus: {task.status}')
+        subject = f"Nova task atribuída: {task.title}"
+        body = (
+            f"Olá {user.name},\n\nA task '{task.title}' foi atribuída a você.\n\n"
+            f"Prioridade: {task.priority}\nStatus: {task.status}"
+        )
+        return self.send_email(user.email, subject, body)
+
+    def notify_task_overdue(self, user, task):
+        subject = f"Task atrasada: {task.title}"
+        body = f"Olá {user.name},\n\nA task '{task.title}' está atrasada!\n\nData limite: {task.due_date}"
         return self.send_email(user.email, subject, body)

@@ -1,52 +1,50 @@
-"""Acesso a dados da tabela usuarios. A senha nunca sai deste módulo."""
-from werkzeug.security import check_password_hash, generate_password_hash
+"""Acesso a dados da tabela usuarios. A senha (hash) nunca sai nos dicionários públicos."""
+from src.config.settings import TIPO_ADMIN
 
-COLUNAS_PUBLICAS = ("id", "nome", "email", "tipo", "criado_em")
-PREFIXOS_HASH = ("scrypt:", "pbkdf2:")
+COLUNAS_PUBLICAS = "id, nome, email, tipo, criado_em"
 
 
 def _to_dict(row):
-    return {coluna: row[coluna] for coluna in COLUNAS_PUBLICAS}
+    return {
+        "id": row["id"],
+        "nome": row["nome"],
+        "email": row["email"],
+        "tipo": row["tipo"],
+        "criado_em": row["criado_em"],
+    }
 
 
 def listar(db):
-    rows = db.execute("SELECT id, nome, email, tipo, criado_em FROM usuarios").fetchall()
+    rows = db.execute(f"SELECT {COLUNAS_PUBLICAS} FROM usuarios").fetchall()
     return [_to_dict(row) for row in rows]
 
 
 def buscar_por_id(db, usuario_id):
-    row = db.execute(
-        "SELECT id, nome, email, tipo, criado_em FROM usuarios WHERE id = ?", (usuario_id,)
-    ).fetchone()
+    row = db.execute(f"SELECT {COLUNAS_PUBLICAS} FROM usuarios WHERE id = ?", (usuario_id,)).fetchone()
     return _to_dict(row) if row else None
 
 
-def autenticar(db, email, senha):
-    rows = db.execute("SELECT id, nome, email, tipo, senha FROM usuarios WHERE email = ?", (email,)).fetchall()
-    for row in rows:
-        if row["senha"] and check_password_hash(row["senha"], senha):
-            return {"id": row["id"], "nome": row["nome"], "email": row["email"], "tipo": row["tipo"]}
-    return None
+def buscar_credenciais(db, email):
+    """Uso interno do login: devolve id, nome, email, tipo e o hash da senha."""
+    row = db.execute(
+        "SELECT id, nome, email, tipo, senha FROM usuarios WHERE email = ? ORDER BY id LIMIT 1",
+        (email,),
+    ).fetchone()
+    return dict(row) if row else None
 
 
-def inserir(db, nome, email, senha, tipo):
-    cursor = db.execute(
-        "INSERT INTO usuarios (nome, email, senha, tipo) VALUES (?, ?, ?, ?)",
-        (nome, email, generate_password_hash(senha), tipo),
-    )
+def email_existe(db, email):
+    return db.execute("SELECT 1 FROM usuarios WHERE email = ?", (email,)).fetchone() is not None
+
+
+def inserir(db, nome, email, senha_hash, tipo):
+    with db:
+        cursor = db.execute(
+            "INSERT INTO usuarios (nome, email, senha, tipo) VALUES (?, ?, ?, ?)",
+            (nome, email, senha_hash, tipo),
+        )
     return cursor.lastrowid
 
 
-def contar(db):
-    return db.execute("SELECT COUNT(*) FROM usuarios").fetchone()[0]
-
-
-def migrar_senhas_sem_hash(db):
-    rows = db.execute("SELECT id, senha FROM usuarios WHERE senha IS NOT NULL").fetchall()
-    legadas = [row for row in rows if not row["senha"].startswith(PREFIXOS_HASH)]
-    with db:
-        for row in legadas:
-            db.execute(
-                "UPDATE usuarios SET senha = ? WHERE id = ?", (generate_password_hash(row["senha"]), row["id"])
-            )
-    return len(legadas)
+def is_admin(usuario):
+    return usuario is not None and usuario["tipo"] == TIPO_ADMIN
