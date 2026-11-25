@@ -236,7 +236,7 @@ No projeto 3, a skill não criou a pasta `src/`, porque `models/` e `routes/` j�
 | Aplicação inicia sem erros | Sim | Sim | Sim |
 | Endpoints originais respondem | Sim (14 de 23 com o mesmo status; as gravações em produtos e pedidos e as 2 rotas `/admin` passaram a exigir token) | Sim (4 de 4 no checkout; relatório e DELETE passaram a exigir token) | Sim (16 de 25 com o mesmo status; todas as rotas que gravam em tasks, usuários e categorias passaram a exigir token, menos o cadastro comum) |
 
-Os números da última linha vêm do baseline. Todas as chamadas diferentes são rotas que agora respondem 401 sem token. Com o token certo, elas voltam a responder como antes. Além do baseline, cada rota protegida foi testada à parte sem token (401), com o token de outro usuário (403) e com o token do dono ou de um admin (2xx), e todas passaram.
+Os números da última linha vêm do baseline. Todas as chamadas diferentes são rotas que agora respondem 401 sem token. Com o token de admin, o baseline volta a dar exatamente os mesmos status de antes da refatoração: 23 de 23 no projeto 1, 7 de 7 no projeto 2 e 25 de 25 no projeto 3. Além do baseline, cada rota protegida foi testada à parte sem token (401), com o token de outro usuário (403) e com o token do dono ou de um admin (2xx), e todas passaram.
 
 ### Logs das aplicações após a refatoração
 
@@ -318,7 +318,7 @@ Sobre o idioma, o agente escreveu às vezes em português e às vezes em inglês
 
 ### Pré-requisitos
 
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code/overview) instalado e autenticado (testado na versão 2.1.330)
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code/overview) instalado e autenticado (testado na versão 2.1.331)
 - Python 3.10 ou superior, para os projetos 1 e 3
 - Node.js e npm, para o projeto 2
 
